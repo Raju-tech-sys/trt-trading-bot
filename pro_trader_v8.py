@@ -797,7 +797,31 @@ class ProTraderV8Bot:
 
         # 6. Build actionable payload for dashboard
         actionable_breakouts = []
+        now_ts = time.time()
+        now_utc = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+
         for s in manual_signals:
+            cur_p = s.current_price if s.current_price > 0 else s.entry_price
+            is_long = s.direction == "LONG"
+
+            # Check Invalidation & Target Status
+            sl_breached = (cur_p <= s.sl_price) if is_long else (cur_p >= s.sl_price)
+            tp2_reached = (cur_p >= s.tp2_price) if is_long else (cur_p <= s.tp2_price)
+            tp1_reached = (cur_p >= s.tp1_price) if is_long else (cur_p <= s.tp1_price)
+
+            if sl_breached:
+                signal_status = "INVALID"
+                status_reason = f"SL Breached (Current ${cur_p} vs SL ${s.sl_price})"
+            elif tp2_reached:
+                signal_status = "TARGET_2_HIT"
+                status_reason = f"TP2 Reached (+{s.target_move_pct}%)"
+            elif tp1_reached:
+                signal_status = "TP1_HIT"
+                status_reason = "TP1 (1.8R) Reached — Bank 50%"
+            else:
+                signal_status = "ACTIVE"
+                status_reason = "Setup Active & Valid"
+
             actionable_breakouts.append({
                 "symbol": s.symbol,
                 "direction": s.direction,
@@ -805,6 +829,7 @@ class ProTraderV8Bot:
                 "quality_score": s.quality_score,
                 "quality_grade": s.quality_grade,
                 "trigger_type": s.trigger_type,
+                "current_price": cur_p,
                 "entry_price": s.entry_price,
                 "sl_price": s.sl_price,
                 "sl_dist_pct": s.sl_dist_pct,
@@ -817,8 +842,12 @@ class ProTraderV8Bot:
                 "disp_pct": s.disp_pct,
                 "htf_bias": s.htf_bias,
                 "reason": s.reason,
+                "status": signal_status,
+                "status_reason": status_reason,
+                "is_invalid": bool(sl_breached),
                 "action_mode": "MANUAL_READY",
-                "detected_at": datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+                "detected_timestamp": s.detected_timestamp or now_ts,
+                "detected_at": now_utc
             })
 
         # Save to live_status.json
