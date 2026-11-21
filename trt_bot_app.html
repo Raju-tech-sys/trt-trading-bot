@@ -512,27 +512,82 @@
             const isLong = b.direction === "LONG";
             const dirColor = isLong ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" : "bg-rose-500/20 text-rose-400 border-rose-500/40";
             const dirIcon = isLong ? "LONG 🟢" : "SHORT 🔴";
+
+            const curPrice = Number(b.current_price != null ? b.current_price : b.entry_price);
+            const slPrice = Number(b.sl_price);
+            const entryPrice = Number(b.entry_price);
+            const tp1Price = Number(b.tp1_price);
+            const tp2Price = Number(b.tp2_price);
+
+            const isSlHit = isLong ? (curPrice <= slPrice) : (curPrice >= slPrice);
+            const isTp2Hit = isLong ? (curPrice >= tp2Price) : (curPrice <= tp2Price);
+            const isTp1Hit = isLong ? (curPrice >= tp1Price) : (curPrice <= tp1Price);
+            const isInvalid = Boolean(b.is_invalid || b.status === "INVALID" || isSlHit);
+
+            const timeAgoStr = formatTimeAgo(b.detected_timestamp);
+
             const card = document.createElement("div");
-            card.className = `bg-slate-950/90 border ${isCapped ? 'border-amber-500/40' : 'border-cyan-500/40'} rounded-xl p-3.5 shadow-lg space-y-2.5 transition hover:border-cyan-400`;
+            card.className = isInvalid
+              ? "bg-rose-950/25 border border-rose-500/50 rounded-xl p-3.5 shadow-lg space-y-2.5 transition"
+              : `bg-slate-950/90 border ${isCapped ? 'border-amber-500/40' : 'border-cyan-500/40'} rounded-xl p-3.5 shadow-lg space-y-2.5 transition hover:border-cyan-400`;
+
             card.innerHTML = `
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-2 border-b border-slate-800/80">
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="text-base font-extrabold text-white font-mono">${b.symbol}</span>
+                  <!-- LIVE CURRENT PRICE BESIDE SYMBOL -->
+                  <span class="px-2 py-0.5 rounded text-xs font-mono font-bold ${isInvalid ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-slate-900 text-cyan-300 border border-cyan-500/30'} flex items-center gap-1">
+                    <span class="text-[9px] uppercase tracking-wider text-slate-400">Current:</span> $${curPrice}
+                  </span>
                   <span class="badge ${dirColor} font-bold">${dirIcon}</span>
                   <span class="badge bg-purple-500/15 text-purple-300 border border-purple-500/30 font-medium text-[10px]">${b.module || 'Institutional Setup'}</span>
-                  ${b.quality_score ? `<span class="badge bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold text-[10px]">⭐ Score: ${b.quality_score}/100 (${b.quality_grade || 'Top Tier'})</span>` : ''}
+                  ${b.quality_score ? `<span class="badge bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold text-[10px]">⭐ Score: ${b.quality_score}/100</span>` : ''}
                 </div>
+
                 <div class="flex items-center gap-2">
-                  <span class="badge ${isCapped ? 'bg-amber-500/25 text-amber-300 border border-amber-500/50 font-bold' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-bold'}">
-                    ${isCapped ? '⚡ TAKE MANUAL TRADE' : '🤖 AUTO TRADING'}
-                  </span>
+                  <!-- STATUS BADGE (INVALID vs ACTIVE) -->
+                  ${isInvalid ? `
+                    <span class="badge bg-rose-500/30 text-rose-200 border border-rose-500/60 font-black animate-pulse text-xs">
+                      ❌ INVALID (SL Hit)
+                    </span>
+                  ` : isTp2Hit ? `
+                    <span class="badge bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 font-bold text-xs">
+                      🎯 TARGET 2 HIT (+${b.target_move_pct}%)
+                    </span>
+                  ` : isTp1Hit ? `
+                    <span class="badge bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 font-bold text-xs">
+                      💰 TP1 HIT (Bank 50%)
+                    </span>
+                  ` : `
+                    <span class="badge ${isCapped ? 'bg-amber-500/25 text-amber-300 border border-amber-500/50 font-bold' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-bold'}">
+                      ${isCapped ? '⚡ TAKE MANUAL TRADE' : '🤖 AUTO TRADING'}
+                    </span>
+                  `}
+
                   <a href="https://www.binance.com/en/futures/${b.symbol}" target="_blank" class="px-2 py-0.5 text-[10px] rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20 font-bold transition">Binance ↗</a>
-                  <button onclick="copyTradePlan('${b.symbol}', '${b.direction}', '${b.entry_price}', '${b.sl_price}', '${b.tp1_price}', '${b.tp2_price}', '${b.sl_dist_pct}', this)" class="px-2.5 py-0.5 text-[11px] rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 font-semibold transition flex items-center gap-1">
-                    📋 Copy Plan
-                  </button>
-                  <span class="text-[10px] text-slate-400 font-mono">${b.detected_at || ''}</span>
+
+                  ${!isInvalid ? `
+                    <button onclick="copyTradePlan('${b.symbol}', '${b.direction}', '${b.entry_price}', '${b.sl_price}', '${b.tp1_price}', '${b.tp2_price}', '${b.sl_dist_pct}', this)" class="px-2.5 py-0.5 text-[11px] rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 font-semibold transition flex items-center gap-1">
+                      📋 Copy Plan
+                    </button>
+                  ` : `
+                    <span class="px-2 py-0.5 text-[10px] rounded bg-rose-500/15 text-rose-400 border border-rose-500/30 font-semibold">Do Not Enter</span>
+                  `}
+
+                  <!-- HOW LONG AGO TIME BADGE -->
+                  <span class="text-[10px] text-slate-300 font-mono bg-slate-900/90 px-2 py-0.5 rounded border border-slate-700" title="Detected at ${b.detected_at || ''}">
+                    🕒 ${timeAgoStr ? timeAgoStr : (b.detected_at || '')}
+                  </span>
                 </div>
               </div>
+
+              <!-- INVALID WARNING BANNER IF SL HIT -->
+              ${isInvalid ? `
+                <div class="p-2 rounded bg-rose-500/15 border border-rose-500/40 text-[11px] text-rose-300 flex items-center gap-2">
+                  <span class="text-base">⚠️</span>
+                  <div><strong>SETUP INVALIDATED:</strong> Current price ($${curPrice}) has hit the Stop-Loss level ($${slPrice}). Market structure is invalidated. <strong>Do NOT take this trade!</strong></div>
+                </div>
+              ` : ''}
 
               <!-- 4 TRADE PARAMETERS -->
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
