@@ -332,6 +332,7 @@ class ProTraderV8Bot:
             box_pct = squeeze_info["box_pct"]
             htf_bias = squeeze_info.get("htf_bias", "NEUTRAL")
             vol_surge = squeeze_info.get("vol_surge", 1.0)
+            cur_price = round(squeeze_info.get("price", (box_high + box_low) / 2.0), price_prec)
 
             risk_usd = round(balance * self.risk_pct, 2)
             if risk_usd < 10.0:
@@ -369,6 +370,7 @@ class ProTraderV8Bot:
                     direction="LONG",
                     module="4H SQUEEZE BREAKOUT SETUP",
                     entry_price=entry_price,
+                    current_price=cur_price,
                     sl_price=sl_price,
                     tp1_price=tp1_price,
                     tp2_price=tp2_price,
@@ -384,7 +386,8 @@ class ProTraderV8Bot:
                     vol_surge=vol_surge,
                     box_pct=box_pct,
                     disp_pct=50.0,
-                    htf_bias=htf_bias
+                    htf_bias=htf_bias,
+                    detected_timestamp=time.time()
                 )
 
             elif htf_bias == "BEARISH":
@@ -419,6 +422,7 @@ class ProTraderV8Bot:
                     direction="SHORT",
                     module="4H SQUEEZE BREAKDOWN SETUP",
                     entry_price=entry_price,
+                    current_price=cur_price,
                     sl_price=sl_price,
                     tp1_price=tp1_price,
                     tp2_price=tp2_price,
@@ -434,7 +438,8 @@ class ProTraderV8Bot:
                     vol_surge=vol_surge,
                     box_pct=box_pct,
                     disp_pct=50.0,
-                    htf_bias=htf_bias
+                    htf_bias=htf_bias,
+                    detected_timestamp=time.time()
                 )
         except Exception:
             pass
