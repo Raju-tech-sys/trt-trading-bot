@@ -741,6 +741,20 @@
       ctx.stroke();
     }
 
+    function formatTimeAgo(timestampMs) {
+      if (!timestampMs) return "";
+      let ts = Number(timestampMs);
+      if (ts < 1e12) ts *= 1000;
+      const now = Date.now();
+      const diffSec = Math.max(0, Math.floor((now - ts) / 1000));
+      if (diffSec < 60) return `${diffSec}s ago`;
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin}m ago`;
+      const diffHours = Math.floor(diffMin / 60);
+      const remMin = diffMin % 60;
+      return `${diffHours}h ${remMin}m ago`;
+    }
+
     function copyTradePlan(sym, dir, entry, sl, tp1, tp2, slDist, btn) {
       const text = `[TRT TRADING SIGNAL]\nSymbol: ${sym}\nDirection: ${dir}\nEntry Price: $${entry}\nStop-Loss (SL): $${sl} (-${slDist}%)\nTake-Profit 1: $${tp1} (1.8R - Bank 50% & SL to BE)\nTake-Profit 2: $${tp2} (3.5R - Runner Target)\nRisk-Reward: 1:3.5`;
       navigator.clipboard.writeText(text).then(() => {
