@@ -522,6 +522,16 @@ class ProTraderV8Bot:
                 if qty <= 0:
                     return None
 
+                score = 72
+                if vol_surge >= 2.0:
+                    score += 15
+                elif vol_surge >= 1.4:
+                    score += 10
+                if displacement >= 0.60:
+                    score += 10
+                score = min(98, max(65, score))
+                grade = "A+ Institutional" if score >= 90 else "A High Probability"
+
                 return TradeSignal(
                     symbol=symbol,
                     direction="LONG",
@@ -535,7 +545,14 @@ class ProTraderV8Bot:
                     rr_ratio=3.5,
                     risk_usd=risk_usd,
                     qty=qty,
-                    reason=f"Bullish Pullback: 1H Structure Bullish (RSI {round(rsi_1h,1)}) + 15m Reversal Bounce (Safe SL {round(sl_dist_pct,2)}%)"
+                    reason=f"Bullish Pullback: 1H Structure Bullish (RSI {round(rsi_1h,1)}) + 15m Reversal Bounce (Safe SL {round(sl_dist_pct,2)}%)",
+                    quality_score=score,
+                    quality_grade=grade,
+                    trigger_type="MARKET_TRIGGER",
+                    vol_surge=round(vol_surge, 2),
+                    box_pct=2.0,
+                    disp_pct=round(displacement * 100, 1),
+                    htf_bias="BULLISH"
                 )
 
             elif bias == "BEARISH":
@@ -562,6 +579,16 @@ class ProTraderV8Bot:
                 if qty <= 0:
                     return None
 
+                score = 72
+                if vol_surge >= 2.0:
+                    score += 15
+                elif vol_surge >= 1.4:
+                    score += 10
+                if displacement >= 0.60:
+                    score += 10
+                score = min(98, max(65, score))
+                grade = "A+ Institutional" if score >= 90 else "A High Probability"
+
                 return TradeSignal(
                     symbol=symbol,
                     direction="SHORT",
@@ -575,7 +602,14 @@ class ProTraderV8Bot:
                     rr_ratio=3.5,
                     risk_usd=risk_usd,
                     qty=qty,
-                    reason=f"Bearish Pullback: 1H Structure Bearish (RSI {round(rsi_1h,1)}) + 15m Reversal Drop (Safe SL {round(sl_dist_pct,2)}%)"
+                    reason=f"Bearish Pullback: 1H Structure Bearish (RSI {round(rsi_1h,1)}) + 15m Reversal Drop (Safe SL {round(sl_dist_pct,2)}%)",
+                    quality_score=score,
+                    quality_grade=grade,
+                    trigger_type="MARKET_TRIGGER",
+                    vol_surge=round(vol_surge, 2),
+                    box_pct=2.0,
+                    disp_pct=round(displacement * 100, 1),
+                    htf_bias="BEARISH"
                 )
 
         except Exception as e:
