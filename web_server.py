@@ -143,6 +143,37 @@ class RealTimeRequestHandler(SimpleHTTPRequestHandler):
             self.path = "/trt_bot_app.html"
             return super().do_GET()
 
+        elif self.path.startswith("/api/debug"):
+            dir_path = os.path.dirname(os.path.abspath(__file__))
+            status_file = os.path.join(dir_path, "live_status.json")
+            debug_info = {
+                "cwd": os.getcwd(),
+                "file_path": os.path.abspath(__file__),
+                "dir_files": os.listdir(dir_path) if os.path.exists(dir_path) else [],
+                "status_file": status_file,
+                "status_exists": os.path.exists(status_file),
+                "last_known_gainers": len(LAST_KNOWN_STATUS.get("gainers", [])),
+                "last_known_squeezes": len(LAST_KNOWN_STATUS.get("squeezes", []))
+            }
+            if os.path.exists(status_file):
+                try:
+                    debug_info["status_file_size"] = os.path.getsize(status_file)
+                    with open(status_file, "r", encoding="utf-8") as f:
+                        content = json.load(f)
+                    debug_info["json_keys"] = list(content.keys())
+                    debug_info["json_gainers_len"] = len(content.get("gainers", []))
+                    debug_info["json_squeezes_len"] = len(content.get("squeezes", []))
+                except Exception as e:
+                    debug_info["json_error"] = str(e)
+
+            payload = json.dumps(debug_info, indent=2).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
+
         elif self.path.startswith("/api/live"):
             data = fetch_live_binance_state()
             payload = json.dumps(data).encode("utf-8")
