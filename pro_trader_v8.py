@@ -189,6 +189,31 @@ class ProTraderV8Bot:
         vol_surge = candidate_info["vol_surge"]
         disp_pct = candidate_info["disp_pct"]
         box_pct = candidate_info["box_pct"]
+        htf_bias = candidate_info.get("htf_bias", "NEUTRAL")
+
+        # Dynamic Quality & Effectiveness Score (50-100)
+        score = 65
+        if vol_surge >= 2.5:
+            score += 15
+        elif vol_surge >= 1.8:
+            score += 10
+        elif vol_surge >= 1.35:
+            score += 5
+
+        if disp_pct >= 70:
+            score += 12
+        elif disp_pct >= 55:
+            score += 8
+
+        if box_pct <= 2.2:
+            score += 10
+        elif box_pct <= 3.2:
+            score += 5
+
+        if (is_bullish and htf_bias == "BULLISH") or (is_bearish and htf_bias == "BEARISH"):
+            score += 10
+        score = min(99, max(60, score))
+        grade = "A+ Institutional" if score >= 90 else ("A High Probability" if score >= 80 else "B+ Setup")
 
         risk_usd = round(balance * self.risk_pct, 2)
         if risk_usd < 10.0:
@@ -206,7 +231,6 @@ class ProTraderV8Bot:
                 sl_dist = price - raw_sl
                 sl_dist_pct = 0.90
             elif sl_dist_pct > 2.20:
-                # Box too deep, use structural half-box SL
                 raw_sl = price * 0.985
                 sl_dist = price - raw_sl
                 sl_dist_pct = 1.50
@@ -233,7 +257,14 @@ class ProTraderV8Bot:
                 rr_ratio=3.5,
                 risk_usd=risk_usd,
                 qty=qty,
-                reason=f"🚀 Universe Bullish Breakout: 4H Squeeze ({box_pct}%) broken upward + Vol Surge {vol_surge}x + Solid Body {disp_pct}% (1H {candidate_info.get('htf_bias')})"
+                reason=f"🚀 Universe Bullish Breakout: 4H Squeeze ({box_pct}%) broken upward + Vol Surge {vol_surge}x + Solid Body {disp_pct}% (1H {htf_bias})",
+                quality_score=score,
+                quality_grade=grade,
+                trigger_type="MARKET_TRIGGER",
+                vol_surge=vol_surge,
+                box_pct=box_pct,
+                disp_pct=disp_pct,
+                htf_bias=htf_bias
             )
 
         elif is_bearish:
@@ -273,9 +304,134 @@ class ProTraderV8Bot:
                 rr_ratio=3.5,
                 risk_usd=risk_usd,
                 qty=qty,
-                reason=f"💥 Universe Bearish Breakdown: 4H Squeeze ({box_pct}%) broken downward + Vol Surge {vol_surge}x + Solid Body {disp_pct}% (1H {candidate_info.get('htf_bias')})"
+                reason=f"💥 Universe Bearish Breakdown: 4H Squeeze ({box_pct}%) broken downward + Vol Surge {vol_surge}x + Solid Body {disp_pct}% (1H {htf_bias})",
+                quality_score=score,
+                quality_grade=grade,
+                trigger_type="MARKET_TRIGGER",
+                vol_surge=vol_surge,
+                box_pct=box_pct,
+                disp_pct=disp_pct,
+                htf_bias=htf_bias
             )
 
+        return None
+
+    def evaluate_squeeze_setup(self, squeeze_info: Dict, balance: float) -> Optional[TradeSignal]:
+        """Pre-calculated institutional breakout setup for tight 4H consolidations."""
+        try:
+            symbol = squeeze_info["symbol"]
+            qty_prec, price_prec = self.client.get_symbol_precision(symbol)
+            box_high = squeeze_info["box_high"]
+            box_low = squeeze_info["box_low"]
+            box_pct = squeeze_info["box_pct"]
+            htf_bias = squeeze_info.get("htf_bias", "NEUTRAL")
+            vol_surge = squeeze_info.get("vol_surge", 1.0)
+
+            risk_usd = round(balance * self.risk_pct, 2)
+            if risk_usd < 10.0:
+                risk_usd = 10.0
+
+            if htf_bias == "BULLISH":
+                direction = "LONG"
+                entry_price = round(box_high * 1.001, price_prec)
+                raw_sl = box_low * 0.998
+                sl_dist = entry_price - raw_sl
+                sl_dist_pct = (sl_dist / entry_price) * 100.0
+                if sl_dist_pct < 0.80:
+                    raw_sl = entry_price * 0.991
+                    sl_dist = entry_price - raw_sl
+                    sl_dist_pct = 0.90
+                elif sl_dist_pct > 2.20:
+                    raw_sl = entry_price * 0.985
+                    sl_dist = entry_price - raw_sl
+                    sl_dist_pct = 1.50
+
+                sl_price = round(raw_sl, price_prec)
+                tp1_price = round(entry_price + (1.8 * sl_dist), price_prec)
+                tp2_price = round(entry_price + (3.5 * sl_dist), price_prec)
+                target_move = round(((tp2_price - entry_price) / entry_price) * 100.0, 2)
+                qty = round(risk_usd / sl_dist, qty_prec) if sl_dist > 0 else 0
+                if qty <= 0:
+                    return None
+
+                score = int(88 - (box_pct * 3) + (8 if htf_bias == "BULLISH" else 0))
+                score = min(96, max(75, score))
+                grade = "A+ Institutional" if score >= 88 else "A High Probability"
+
+                return TradeSignal(
+                    symbol=symbol,
+                    direction="LONG",
+                    module="4H SQUEEZE BREAKOUT SETUP",
+                    entry_price=entry_price,
+                    sl_price=sl_price,
+                    tp1_price=tp1_price,
+                    tp2_price=tp2_price,
+                    target_move_pct=target_move,
+                    sl_dist_pct=round(sl_dist_pct, 2),
+                    rr_ratio=3.5,
+                    risk_usd=risk_usd,
+                    qty=qty,
+                    reason=f"🎯 4H Squeeze ({box_pct}%) Breakout Plan: 1H Trend is BULLISH. Buy-stop above ${box_high}",
+                    quality_score=score,
+                    quality_grade=grade,
+                    trigger_type="BREAKOUT_TRIGGER",
+                    vol_surge=vol_surge,
+                    box_pct=box_pct,
+                    disp_pct=50.0,
+                    htf_bias=htf_bias
+                )
+
+            elif htf_bias == "BEARISH":
+                direction = "SHORT"
+                entry_price = round(box_low * 0.999, price_prec)
+                raw_sl = box_high * 1.002
+                sl_dist = raw_sl - entry_price
+                sl_dist_pct = (sl_dist / entry_price) * 100.0
+                if sl_dist_pct < 0.80:
+                    raw_sl = entry_price * 1.009
+                    sl_dist = raw_sl - entry_price
+                    sl_dist_pct = 0.90
+                elif sl_dist_pct > 2.20:
+                    raw_sl = entry_price * 1.015
+                    sl_dist = raw_sl - entry_price
+                    sl_dist_pct = 1.50
+
+                sl_price = round(raw_sl, price_prec)
+                tp1_price = round(entry_price - (1.8 * sl_dist), price_prec)
+                tp2_price = round(entry_price - (3.5 * sl_dist), price_prec)
+                target_move = round(((entry_price - tp2_price) / entry_price) * 100.0, 2)
+                qty = round(risk_usd / sl_dist, qty_prec) if sl_dist > 0 else 0
+                if qty <= 0:
+                    return None
+
+                score = int(88 - (box_pct * 3) + (8 if htf_bias == "BEARISH" else 0))
+                score = min(96, max(75, score))
+                grade = "A+ Institutional" if score >= 88 else "A High Probability"
+
+                return TradeSignal(
+                    symbol=symbol,
+                    direction="SHORT",
+                    module="4H SQUEEZE BREAKDOWN SETUP",
+                    entry_price=entry_price,
+                    sl_price=sl_price,
+                    tp1_price=tp1_price,
+                    tp2_price=tp2_price,
+                    target_move_pct=target_move,
+                    sl_dist_pct=round(sl_dist_pct, 2),
+                    rr_ratio=3.5,
+                    risk_usd=risk_usd,
+                    qty=qty,
+                    reason=f"🎯 4H Squeeze ({box_pct}%) Breakdown Plan: 1H Trend is BEARISH. Sell-stop below ${box_low}",
+                    quality_score=score,
+                    quality_grade=grade,
+                    trigger_type="BREAKOUT_TRIGGER",
+                    vol_surge=vol_surge,
+                    box_pct=box_pct,
+                    disp_pct=50.0,
+                    htf_bias=htf_bias
+                )
+        except Exception:
+            pass
         return None
 
     def evaluate_core_pullback(self, symbol: str, balance: float) -> Optional[TradeSignal]:
