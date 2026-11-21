@@ -47,6 +47,13 @@ class TradeSignal:
     risk_usd: float
     qty: float
     reason: str
+    quality_score: int = 85
+    quality_grade: str = "A+ Institutional"
+    trigger_type: str = "MARKET_TRIGGER"  # "MARKET_TRIGGER" or "BREAKOUT_TRIGGER"
+    vol_surge: float = 1.5
+    box_pct: float = 2.5
+    disp_pct: float = 65.0
+    htf_bias: str = "NEUTRAL"
 
 
 class BinanceFuturesClient:
