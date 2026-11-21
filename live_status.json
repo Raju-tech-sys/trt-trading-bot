@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-11-21 15:49:15 UTC",
-  "balance": 4416.96949512,
+  "timestamp": "2026-11-21 15:50:14 UTC",
+  "balance": 4417.55402366,
   "open_count": 2,
   "total_eligible_universe": 147,
   "deep_scanned": 30,
@@ -8,66 +8,66 @@
   "actionable_breakouts": [],
   "gainers": [
     {
-      "symbol": "SKYAIUSDT",
-      "change": 26.76,
-      "volume_usd": 44004810.84102,
-      "price": 0.03567,
-      "high": 0.0398,
-      "low": 0.02642
-    },
-    {
       "symbol": "IDOLUSDT",
-      "change": 25.06,
-      "volume_usd": 92881224.983649,
-      "price": 0.028258,
+      "change": 26.82,
+      "volume_usd": 93189396.869159,
+      "price": 0.028655,
       "high": 0.030744,
       "low": 0.020182
     },
     {
+      "symbol": "SKYAIUSDT",
+      "change": 26.16,
+      "volume_usd": 44092663.39634,
+      "price": 0.03564,
+      "high": 0.0398,
+      "low": 0.02642
+    },
+    {
       "symbol": "RAREUSDT",
-      "change": 20.73,
-      "volume_usd": 92379537.7319,
+      "change": 18.25,
+      "volume_usd": 92180036.09733,
       "price": 0.01497,
       "high": 0.01609,
       "low": 0.01219
     },
     {
       "symbol": "VVVUSDT",
-      "change": 18.79,
-      "volume_usd": 65225185.74485,
-      "price": 23.259,
+      "change": 17.8,
+      "volume_usd": 65182642.19043,
+      "price": 23.225,
       "high": 23.648,
       "low": 19.1
     },
     {
       "symbol": "ORCAUSDT",
-      "change": 15.02,
-      "volume_usd": 30082520.6124,
-      "price": 1.21,
+      "change": 16.16,
+      "volume_usd": 30211218.851,
+      "price": 1.222,
       "high": 1.305,
       "low": 1.039
     },
     {
-      "symbol": "YBUSDT",
-      "change": 14.47,
-      "volume_usd": 33821817.5276,
-      "price": 0.05371,
-      "high": 0.05995,
-      "low": 0.04633
-    },
-    {
       "symbol": "USUALUSDT",
-      "change": 13.4,
-      "volume_usd": 10932498.131994,
-      "price": 0.011649,
+      "change": 13.44,
+      "volume_usd": 10951444.287906,
+      "price": 0.011653,
       "high": 0.011999,
       "low": 0.010042
     },
     {
+      "symbol": "YBUSDT",
+      "change": 13.42,
+      "volume_usd": 33783820.76778,
+      "price": 0.05368,
+      "high": 0.05995,
+      "low": 0.04633
+    },
+    {
       "symbol": "DODOXUSDT",
-      "change": 12.02,
-      "volume_usd": 106711318.284434,
-      "price": 0.037622,
+      "change": 12.97,
+      "volume_usd": 106719815.023748,
+      "price": 0.037682,
       "high": 0.043744,
       "low": 0.031802
     }
@@ -75,120 +75,120 @@
   "losers": [
     {
       "symbol": "KERNELUSDT",
-      "change": -14.06,
-      "volume_usd": 130127734.08236,
-      "price": 0.04296,
+      "change": -14.52,
+      "volume_usd": 129785210.92217,
+      "price": 0.04299,
       "high": 0.05113,
       "low": 0.04161
     },
     {
-      "symbol": "ICNTUSDT",
-      "change": -10.32,
-      "volume_usd": 42374222.0475,
-      "price": 0.3683,
-      "high": 0.4206,
-      "low": 0.3361
-    },
-    {
       "symbol": "HUMAUSDT",
-      "change": -10.15,
-      "volume_usd": 47353237.726584,
-      "price": 0.00876,
+      "change": -11.25,
+      "volume_usd": 47079115.00513,
+      "price": 0.008771,
       "high": 0.010266,
       "low": 0.008251
     },
     {
-      "symbol": "PIPPINUSDT",
-      "change": -8.43,
-      "volume_usd": 21266847.1409,
-      "price": 0.01674,
-      "high": 0.01879,
-      "low": 0.01658
-    },
-    {
-      "symbol": "PROMUSDT",
-      "change": -7.95,
-      "volume_usd": 39542321.4203,
-      "price": 5.062,
-      "high": 5.507,
-      "low": 4.343
+      "symbol": "ICNTUSDT",
+      "change": -10.91,
+      "volume_usd": 42319166.3455,
+      "price": 0.3676,
+      "high": 0.4206,
+      "low": 0.3361
     },
     {
       "symbol": "BLESSUSDT",
-      "change": -7.7,
-      "volume_usd": 521898325.359099,
-      "price": 0.011504,
+      "change": -9.7,
+      "volume_usd": 521773082.40122,
+      "price": 0.011473,
       "high": 0.02185,
       "low": 0.010232
     },
     {
-      "symbol": "BEATUSDT",
-      "change": -7.01,
-      "volume_usd": 14398140.33419,
-      "price": 0.07035,
-      "high": 0.07714,
-      "low": 0.06336
-    },
-    {
       "symbol": "SOXLUSDT",
-      "change": -7.0,
-      "volume_usd": 5230727277.7581,
-      "price": 32.69,
+      "change": -9.15,
+      "volume_usd": 5205753684.6944,
+      "price": 32.68,
       "high": 37.12,
       "low": 29.88
+    },
+    {
+      "symbol": "PIPPINUSDT",
+      "change": -8.15,
+      "volume_usd": 21272823.3555,
+      "price": 0.01679,
+      "high": 0.01879,
+      "low": 0.01658
+    },
+    {
+      "symbol": "KORUUSDT",
+      "change": -7.39,
+      "volume_usd": 430952771.80578,
+      "price": 5.052,
+      "high": 5.576,
+      "low": 4.6
+    },
+    {
+      "symbol": "PROMUSDT",
+      "change": -7.01,
+      "volume_usd": 39471252.638,
+      "price": 5.055,
+      "high": 5.507,
+      "low": 4.343
     }
   ],
   "squeezes": [
     {
       "symbol": "XAUUSDT",
-      "price": 3562.25,
+      "price": 3562.17,
       "box_high": 3575.7,
       "box_low": 3541.0,
       "box_pct": 0.98,
       "dist_to_high_pct": 0.38,
-      "dist_to_low_pct": 0.6,
-      "vol_surge": 0.08,
-      "disp_pct": 66.2,
-      "upper_wick_ratio": 0.33,
-      "lower_wick_ratio": 0.01,
+      "dist_to_low_pct": 0.59,
+      "vol_surge": 0.1,
+      "disp_pct": 55.4,
+      "upper_wick_ratio": 0.26,
+      "lower_wick_ratio": 0.19,
       "htf_bias": "BULLISH",
       "is_bullish": false,
       "is_bearish": false,
-      "score": 0.1
+      "score": 0.11
     },
     {
       "symbol": "SPCXUSDT",
-      "price": 130.73,
+      "price": 130.75,
       "box_high": 131.29,
       "box_low": 130.0,
       "box_pct": 0.99,
-      "dist_to_high_pct": 0.43,
-      "dist_to_low_pct": 0.56,
-      "vol_surge": 0.04,
-      "disp_pct": 57.1,
+      "dist_to_high_pct": 0.41,
+      "dist_to_low_pct": 0.57,
+      "vol_surge": 0.05,
+      "disp_pct": 28.6,
       "upper_wick_ratio": 0.14,
-      "lower_wick_ratio": 0.29,
+      "lower_wick_ratio": 0.57,
       "htf_bias": "BULLISH",
       "is_bullish": false,
       "is_bearish": false,
-      "score": 0.05
+      "score": 0.03
     },
     {
       "symbol": "QQQUSDT",
-      "price": 622.37,
+      "price": 622.48,
       "box_high": 625.9,
       "box_low": 617.88,
       "box_pct": 1.29,
-      "dist_to_high_pct": 0.57,
-      "dist_to_low_pct": 0.72,
+      "dist_to_high_pct": 0.55,
+      "dist_to_low_pct": 0.74,
       "vol_surge": 0.12,
-      "disp_pct": 50.0,
+      "disp_pct": 17.6,
       "upper_wick_ratio": 0.15,
-      "lower_wick_ratio": 0.35,
+      "lower_wick_ratio": 0.68,
       "htf_bias": "BULLISH",
       "is_bullish": false,
       "is_bearish": false,
-      "score": 0.12
+      "score": 0.04
     },
     {
       "symbol": "XAGUSDT",
@@ -209,37 +209,37 @@
     },
     {
       "symbol": "SKHYNIXUSDT",
-      "price": 762.76,
+      "price": 762.6,
       "box_high": 766.79,
       "box_low": 753.19,
       "box_pct": 1.79,
-      "dist_to_high_pct": 0.53,
-      "dist_to_low_pct": 1.25,
-      "vol_surge": 0.13,
-      "disp_pct": 23.4,
+      "dist_to_high_pct": 0.55,
+      "dist_to_low_pct": 1.23,
+      "vol_surge": 0.15,
+      "disp_pct": 38.3,
       "upper_wick_ratio": 0.31,
-      "lower_wick_ratio": 0.46,
+      "lower_wick_ratio": 0.31,
       "htf_bias": "BULLISH",
       "is_bullish": false,
       "is_bearish": false,
-      "score": 0.06
+      "score": 0.11
     },
     {
       "symbol": "MUUSDT",
-      "price": 609.28,
+      "price": 609.15,
       "box_high": 613.74,
       "box_low": 601.1,
       "box_pct": 2.08,
-      "dist_to_high_pct": 0.73,
-      "dist_to_low_pct": 1.34,
-      "vol_surge": 0.08,
-      "disp_pct": 7.9,
-      "upper_wick_ratio": 0.38,
-      "lower_wick_ratio": 0.54,
+      "dist_to_high_pct": 0.75,
+      "dist_to_low_pct": 1.32,
+      "vol_surge": 0.09,
+      "disp_pct": 9.2,
+      "upper_wick_ratio": 0.46,
+      "lower_wick_ratio": 0.45,
       "htf_bias": "BULLISH",
       "is_bullish": false,
       "is_bearish": false,
-      "score": 0.01
+      "score": 0.02
     },
     {
       "symbol": "NVDAUSDT",
@@ -249,74 +249,74 @@
       "box_pct": 2.41,
       "dist_to_high_pct": 0.7,
       "dist_to_low_pct": 1.7,
-      "vol_surge": 0.15,
-      "disp_pct": 52.2,
-      "upper_wick_ratio": 0.0,
-      "lower_wick_ratio": 0.48,
+      "vol_surge": 0.18,
+      "disp_pct": 50.0,
+      "upper_wick_ratio": 0.04,
+      "lower_wick_ratio": 0.46,
       "htf_bias": "BEARISH",
       "is_bullish": false,
       "is_bearish": false,
-      "score": 0.15
+      "score": 0.18
     }
   ],
   "screened_tokens": {
-    "SKYAIUSDT": {
-      "vol": "$44.0M",
-      "structure": "TOP GAINER \ud83d\ude80",
-      "status": "+26.76% (24h)"
-    },
     "IDOLUSDT": {
-      "vol": "$92.9M",
+      "vol": "$93.2M",
       "structure": "TOP GAINER \ud83d\ude80",
-      "status": "+25.06% (24h)"
+      "status": "+26.82% (24h)"
+    },
+    "SKYAIUSDT": {
+      "vol": "$44.1M",
+      "structure": "TOP GAINER \ud83d\ude80",
+      "status": "+26.16% (24h)"
     },
     "RAREUSDT": {
-      "vol": "$92.4M",
+      "vol": "$92.2M",
       "structure": "TOP GAINER \ud83d\ude80",
-      "status": "+20.73% (24h)"
+      "status": "+18.25% (24h)"
     },
     "VVVUSDT": {
       "vol": "$65.2M",
       "structure": "TOP GAINER \ud83d\ude80",
-      "status": "+18.79% (24h)"
+      "status": "+17.8% (24h)"
     },
     "ORCAUSDT": {
-      "vol": "$30.1M",
+      "vol": "$30.2M",
       "structure": "TOP GAINER \ud83d\ude80",
-      "status": "+15.02% (24h)"
+      "status": "+16.16% (24h)"
     },
     "KERNELUSDT": {
-      "vol": "$130.1M",
+      "vol": "$129.8M",
       "structure": "TOP LOSER \ud83d\udca5",
-      "status": "-14.06% (24h)"
-    },
-    "ICNTUSDT": {
-      "vol": "$42.4M",
-      "structure": "TOP LOSER \ud83d\udca5",
-      "status": "-10.32% (24h)"
+      "status": "-14.52% (24h)"
     },
     "HUMAUSDT": {
-      "vol": "$47.4M",
+      "vol": "$47.1M",
       "structure": "TOP LOSER \ud83d\udca5",
-      "status": "-10.15% (24h)"
+      "status": "-11.25% (24h)"
     },
-    "PIPPINUSDT": {
-      "vol": "$21.3M",
+    "ICNTUSDT": {
+      "vol": "$42.3M",
       "structure": "TOP LOSER \ud83d\udca5",
-      "status": "-8.43% (24h)"
+      "status": "-10.91% (24h)"
     },
-    "PROMUSDT": {
-      "vol": "$39.5M",
+    "BLESSUSDT": {
+      "vol": "$521.8M",
       "structure": "TOP LOSER \ud83d\udca5",
-      "status": "-7.95% (24h)"
+      "status": "-9.7% (24h)"
+    },
+    "SOXLUSDT": {
+      "vol": "$5205.8M",
+      "structure": "TOP LOSER \ud83d\udca5",
+      "status": "-9.15% (24h)"
     },
     "XAUUSDT": {
-      "vol": "VolSurge 0.08x",
+      "vol": "VolSurge 0.1x",
       "structure": "SQUEEZE 0.98%",
       "status": "1H: BULLISH"
     },
     "SPCXUSDT": {
-      "vol": "VolSurge 0.04x",
+      "vol": "VolSurge 0.05x",
       "structure": "SQUEEZE 0.99%",
       "status": "1H: BULLISH"
     },
@@ -331,7 +331,7 @@
       "status": "1H: BULLISH"
     },
     "SKHYNIXUSDT": {
-      "vol": "VolSurge 0.13x",
+      "vol": "VolSurge 0.15x",
       "structure": "SQUEEZE 1.79%",
       "status": "1H: BULLISH"
     }
