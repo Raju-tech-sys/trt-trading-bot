@@ -9,9 +9,9 @@ import time
 import subprocess
 from datetime import datetime
 
-WATCH_EXTS = {".py", ".html", ".json", ".md", ".txt", ".bat", ".sh"}
+WATCH_EXTS = {".py", ".html", ".md", ".txt", ".bat", ".sh"}
 EXCLUDE_DIRS = {".git", ".venv", "__pycache__", "data_cache", "results", "browser_sandbox"}
-EXCLUDE_FILES = {"live_status.json.tmp"}
+EXCLUDE_FILES = {"live_status.json", "live_status.json.tmp", "check_render_live.py"}
 
 GIT_BIN = r"C:\Users\FanixOP\.local\bin\git\cmd\git.exe"
 if not os.path.exists(GIT_BIN):
