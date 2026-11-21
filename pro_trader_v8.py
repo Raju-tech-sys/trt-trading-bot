@@ -711,40 +711,100 @@ class ProTraderV8Bot:
         open_pos = self.client.get_open_positions()
         active_coins = {p["symbol"] for p in open_pos}
 
+        # Strict 2-trade auto-execution cap
+        MAX_POSITIONS = 2
+        available_slots = max(0, MAX_POSITIONS - len(open_pos))
+        is_capped = available_slots == 0
+
         print(f"\n{'='*78}")
-        print(f"🏛️ [PRO DUAL-ENGINE v8.0 UNIVERSE SCAN] {datetime.now(timezone.utc).strftime('%H:%M:%S UTC')} | Balance: ${balance:.2f} | Open: {len(open_pos)}/2")
+        print(f"🏛️ [PRO DUAL-ENGINE v8.0 UNIVERSE SCAN] {datetime.now(timezone.utc).strftime('%H:%M:%S UTC')} | Balance: ${balance:.2f} | Open: {len(open_pos)}/2 (Slots Available: {available_slots})")
         print(f"{'='*78}")
 
         # 1. Full Universe Scan
-        scan_res = self.scanner.scan_top_candidates(max_candidates=30)
+        scan_res = self.scanner.scan_top_candidates(max_candidates=35)
         signals_found = scan_res.get("breakout_signals", [])
+        squeezes = scan_res.get("squeezes", [])
 
-        # Build actionable setups for every breakout signal found
-        actionable_breakouts = []
-        is_capped = len(open_pos) >= 2
+        # 2. Collect ALL potential trade candidates across both engines
+        all_triggered_signals: List[TradeSignal] = []
+
+        # Engine 2: Universe Breakout Signals
         for cand in signals_found:
             trade_sig = self.evaluate_universe_breakout(cand, balance)
             if trade_sig:
-                action_mode = "MANUAL_READY" if is_capped else "AUTO_READY"
-                actionable_breakouts.append({
-                    "symbol": trade_sig.symbol,
-                    "direction": trade_sig.direction,
-                    "module": trade_sig.module,
-                    "entry_price": trade_sig.entry_price,
-                    "sl_price": trade_sig.sl_price,
-                    "sl_dist_pct": trade_sig.sl_dist_pct,
-                    "tp1_price": trade_sig.tp1_price,
-                    "tp2_price": trade_sig.tp2_price,
-                    "target_move_pct": trade_sig.target_move_pct,
-                    "rr_ratio": trade_sig.rr_ratio,
-                    "vol_surge": cand.get("vol_surge", 1.5),
-                    "box_pct": cand.get("box_pct", 2.5),
-                    "disp_pct": cand.get("disp_pct", 65.0),
-                    "htf_bias": cand.get("htf_bias", "NEUTRAL"),
-                    "reason": trade_sig.reason,
-                    "action_mode": action_mode,
-                    "detected_at": datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
-                })
+                all_triggered_signals.append(trade_sig)
+
+        # Engine 1: SMC Pullback Reversals on Core Watchlist
+        for sym in self.core_watchlist:
+            sig_pb = self.evaluate_core_pullback(sym, balance)
+            if sig_pb:
+                all_triggered_signals.append(sig_pb)
+
+        # 3. Sort all triggered signals by QUALITY & EFFECTIVENESS SCORE (Highest to Lowest)
+        # Guarantees that only the BEST / MOST EFFECTIVE trades are chosen!
+        all_triggered_signals.sort(key=lambda s: s.quality_score, reverse=True)
+
+        # 4. Filter for auto-execution vs manual setups
+        auto_executed: List[TradeSignal] = []
+        manual_signals: List[TradeSignal] = []
+
+        if available_slots > 0 and all_triggered_signals:
+            for sig in all_triggered_signals:
+                if sig.symbol in active_coins:
+                    continue
+                if len(auto_executed) < available_slots:
+                    print(f"   💎 [AUTO-TRADE #{len(auto_executed)+1}/{available_slots}] {sig.symbol} {sig.direction} | Quality: {sig.quality_score}/100 ({sig.quality_grade}) — Auto-Executing...")
+                    self.execute_trade(sig)
+                    auto_executed.append(sig)
+                    active_coins.add(sig.symbol)
+                else:
+                    # Beyond available slots -> queue for manual trade dashboard
+                    manual_signals.append(sig)
+        else:
+            # All available slots are full (2/2) -> ALL valid signals are published for manual trading!
+            for sig in all_triggered_signals:
+                if sig.symbol not in active_coins:
+                    manual_signals.append(sig)
+
+        # 5. Complement with top 4H squeeze breakout trigger plans so the user always has setups ready
+        for sq in squeezes:
+            if sq["symbol"] in active_coins:
+                continue
+            if any(m.symbol == sq["symbol"] for m in manual_signals):
+                continue
+            sq_sig = self.evaluate_squeeze_setup(sq, balance)
+            if sq_sig:
+                manual_signals.append(sq_sig)
+            if len(manual_signals) >= 6:
+                break
+
+        manual_signals.sort(key=lambda s: s.quality_score, reverse=True)
+
+        # 6. Build actionable payload for dashboard
+        actionable_breakouts = []
+        for s in manual_signals:
+            actionable_breakouts.append({
+                "symbol": s.symbol,
+                "direction": s.direction,
+                "module": s.module,
+                "quality_score": s.quality_score,
+                "quality_grade": s.quality_grade,
+                "trigger_type": s.trigger_type,
+                "entry_price": s.entry_price,
+                "sl_price": s.sl_price,
+                "sl_dist_pct": s.sl_dist_pct,
+                "tp1_price": s.tp1_price,
+                "tp2_price": s.tp2_price,
+                "target_move_pct": s.target_move_pct,
+                "rr_ratio": s.rr_ratio,
+                "vol_surge": s.vol_surge,
+                "box_pct": s.box_pct,
+                "disp_pct": s.disp_pct,
+                "htf_bias": s.htf_bias,
+                "reason": s.reason,
+                "action_mode": "MANUAL_READY",
+                "detected_at": datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+            })
 
         # Save to live_status.json
         self.update_live_status_file(balance, open_pos, scan_res, actionable_breakouts)
@@ -752,7 +812,7 @@ class ProTraderV8Bot:
         eligible_count = scan_res["overview"].get("total_eligible", 0)
         print(f"   🌐 Universe Scanned: {scan_res['scanned_count']} pairs from {eligible_count} liquid markets")
         if actionable_breakouts:
-            print(f"   ⚡ [{len(actionable_breakouts)} ACTIVE BREAKOUT SIGNALS]: {', '.join([b['symbol'] + ' ' + b['direction'] for b in actionable_breakouts])}")
+            print(f"   ⚡ [{len(actionable_breakouts)} MANUAL SETUPS PUBLISHED]: {', '.join([b['symbol'] + ' ' + b['direction'] + ' (' + str(b['quality_score']) + ')' for b in actionable_breakouts])}")
 
         # Display Top Gainers / Losers
         top_gainers = scan_res["overview"].get("gainers", [])[:3]
@@ -764,36 +824,10 @@ class ProTraderV8Bot:
             l_strs = [f"{l['symbol']} ({l['change']:+}%)" for l in top_losers]
             print(f"   📉 Top Losers:  {', '.join(l_strs)}")
 
-        # If positions at cap, do not execute new trades automatically
         if is_capped:
-            print(f"   🔒 Max risk cap reached ({len(open_pos)} active positions). Auto-trade locked. Setups published for MANUAL trading.")
-            return
-
-        # 2. Priority 1: Auto-Execute Universe Breakout Signals (if positions < 2)
-        if signals_found:
-            for cand in signals_found:
-                sym = cand["symbol"]
-                if sym in active_coins:
-                    continue
-                trade_sig = self.evaluate_universe_breakout(cand, balance)
-                if trade_sig:
-                    print(f"   💎 [{sym}] ===> HIGH PROBABILITY {trade_sig.module} DETECTED! Auto-Executing...")
-                    self.execute_trade(trade_sig)
-                    return
-
-        # 3. Priority 2: Check Core Watchlist for SMC Pullback Reversals
-        for sym in self.core_watchlist:
-            if sym in active_coins:
-                continue
-            sig_pb = self.evaluate_core_pullback(sym, balance)
-            if sig_pb:
-                print(f"   💎 [{sym}] ===> HIGH PROBABILITY {sig_pb.module} DETECTED! Auto-Executing...")
-                self.execute_trade(sig_pb)
-                return
-
-        print("   🔍 All candidates evaluated. Market in consolidation/expansion. Standing by for high-probability trigger.")
-
-        print("   🔍 All candidates evaluated. Market in consolidation/expansion. Standing by for high-probability trigger.")
+            print(f"   🔒 Max risk cap reached ({len(open_pos)}/2 active positions). Auto-trade locked. Top setups published to Dashboard for MANUAL TRADING.")
+        elif not auto_executed:
+            print("   🔍 All candidates evaluated. Market in consolidation/expansion. Standing by for top tier triggers.")
 
     def start(self):
         print("="*78)
