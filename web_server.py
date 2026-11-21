@@ -27,7 +27,17 @@ def sign(params: dict) -> str:
     return f"{q}&signature={sig}"
 
 
+LAST_KNOWN_STATUS = {
+    "screened": {},
+    "gainers": [],
+    "losers": [],
+    "squeezes": [],
+    "actionable_breakouts": [],
+    "total_eligible": 146
+}
+
 def fetch_live_binance_state() -> dict:
+    global LAST_KNOWN_STATUS
     try:
         # 1. Balance
         bal_res = requests.get(f"{BASE_URL}/fapi/v2/balance?" + sign({}), headers={"X-MBX-APIKEY": API_KEY}, timeout=4).json()
@@ -79,12 +89,13 @@ def fetch_live_binance_state() -> dict:
                 if os.path.exists(status_file):
                     with open(status_file, "r", encoding="utf-8") as f:
                         st = json.load(f)
-                        screened = st.get("screened_tokens", {})
-                        gainers = st.get("gainers", [])
-                        losers = st.get("losers", [])
-                        squeezes = st.get("squeezes", [])
-                        actionable_breakouts = st.get("actionable_breakouts", [])
-                        total_eligible = st.get("total_eligible_universe", 146)
+                        if st.get("gainers") or st.get("squeezes"):
+                            LAST_KNOWN_STATUS["screened"] = st.get("screened_tokens", {})
+                            LAST_KNOWN_STATUS["gainers"] = st.get("gainers", [])
+                            LAST_KNOWN_STATUS["losers"] = st.get("losers", [])
+                            LAST_KNOWN_STATUS["squeezes"] = st.get("squeezes", [])
+                            LAST_KNOWN_STATUS["actionable_breakouts"] = st.get("actionable_breakouts", [])
+                            LAST_KNOWN_STATUS["total_eligible"] = st.get("total_eligible_universe", 146)
                     break
             except Exception:
                 time.sleep(0.05)
@@ -97,12 +108,12 @@ def fetch_live_binance_state() -> dict:
             "total_unrealized_pnl": round(sum(p["unrealizedPnl"] for p in active_pos), 2),
             "open_positions": active_pos,
             "recent_trades": clean_trades,
-            "screened_tokens": screened,
-            "gainers": gainers,
-            "losers": losers,
-            "squeezes": squeezes,
-            "actionable_breakouts": actionable_breakouts,
-            "total_eligible_universe": total_eligible
+            "screened_tokens": LAST_KNOWN_STATUS["screened"],
+            "gainers": LAST_KNOWN_STATUS["gainers"],
+            "losers": LAST_KNOWN_STATUS["losers"],
+            "squeezes": LAST_KNOWN_STATUS["squeezes"],
+            "actionable_breakouts": LAST_KNOWN_STATUS["actionable_breakouts"],
+            "total_eligible_universe": LAST_KNOWN_STATUS["total_eligible"]
         }
     except Exception as e:
         return {
