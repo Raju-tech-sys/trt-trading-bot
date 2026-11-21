@@ -548,6 +548,7 @@ class ProTraderV8Bot:
                     direction="LONG",
                     module="MODULE 1 (PULLBACK REVERSAL)",
                     entry_price=round(close, price_prec),
+                    current_price=round(close, price_prec),
                     sl_price=sl_price,
                     tp1_price=tp1_price,
                     tp2_price=tp2_price,
@@ -563,7 +564,8 @@ class ProTraderV8Bot:
                     vol_surge=round(vol_surge, 2),
                     box_pct=2.0,
                     disp_pct=round(displacement * 100, 1),
-                    htf_bias="BULLISH"
+                    htf_bias="BULLISH",
+                    detected_timestamp=time.time()
                 )
 
             elif bias == "BEARISH":
@@ -605,6 +607,7 @@ class ProTraderV8Bot:
                     direction="SHORT",
                     module="MODULE 1 (PULLBACK REVERSAL)",
                     entry_price=round(close, price_prec),
+                    current_price=round(close, price_prec),
                     sl_price=sl_price,
                     tp1_price=tp1_price,
                     tp2_price=tp2_price,
@@ -620,7 +623,8 @@ class ProTraderV8Bot:
                     vol_surge=round(vol_surge, 2),
                     box_pct=2.0,
                     disp_pct=round(displacement * 100, 1),
-                    htf_bias="BEARISH"
+                    htf_bias="BEARISH",
+                    detected_timestamp=time.time()
                 )
 
         except Exception as e:
