@@ -38,6 +38,7 @@ class TradeSignal:
     direction: str              # "LONG" or "SHORT"
     module: str                 # "MODULE 1 (PULLBACK)" or "MODULE 2 (BREAKOUT)"
     entry_price: float
+    current_price: float        # Live market price of symbol
     sl_price: float
     tp1_price: float            # 1.8R
     tp2_price: float            # 3.5R
@@ -54,6 +55,7 @@ class TradeSignal:
     box_pct: float = 2.5
     disp_pct: float = 65.0
     htf_bias: str = "NEUTRAL"
+    detected_timestamp: float = 0.0
 
 
 class BinanceFuturesClient:
