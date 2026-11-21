@@ -251,6 +251,7 @@ class ProTraderV8Bot:
                 direction="LONG",
                 module="MODULE 2 (INSTITUTIONAL BREAKOUT)",
                 entry_price=round(price, price_prec),
+                current_price=round(price, price_prec),
                 sl_price=sl_price,
                 tp1_price=tp1_price,
                 tp2_price=tp2_price,
@@ -266,7 +267,8 @@ class ProTraderV8Bot:
                 vol_surge=vol_surge,
                 box_pct=box_pct,
                 disp_pct=disp_pct,
-                htf_bias=htf_bias
+                htf_bias=htf_bias,
+                detected_timestamp=time.time()
             )
 
         elif is_bearish:
@@ -298,6 +300,7 @@ class ProTraderV8Bot:
                 direction="SHORT",
                 module="MODULE 2 (INSTITUTIONAL BREAKDOWN)",
                 entry_price=round(price, price_prec),
+                current_price=round(price, price_prec),
                 sl_price=sl_price,
                 tp1_price=tp1_price,
                 tp2_price=tp2_price,
@@ -313,7 +316,8 @@ class ProTraderV8Bot:
                 vol_surge=vol_surge,
                 box_pct=box_pct,
                 disp_pct=disp_pct,
-                htf_bias=htf_bias
+                htf_bias=htf_bias,
+                detected_timestamp=time.time()
             )
 
         return None
