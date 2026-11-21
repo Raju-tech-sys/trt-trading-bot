@@ -4,3 +4,10 @@ __pycache__/
 *.tmp
 *.log
 data_cache/
+live_status.json
+live_status.json.tmp
+check_render_live.py
+test_live_api_breakouts.py
+test_scan.py
+test_api.py
+test_screener.py
