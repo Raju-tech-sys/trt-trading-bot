@@ -1,0 +1,5 @@
+{
+  "risk_pct": 1.0,
+  "leverage": 5,
+  "margin_type": "CROSSED"
+}

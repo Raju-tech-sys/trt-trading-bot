@@ -115,6 +115,13 @@ class BinanceFuturesClient:
         except:
             pass
 
+    def set_margin_type(self, symbol: str, margin_type: str = "CROSSED"):
+        try:
+            q = self._sign_query({"symbol": symbol, "marginType": margin_type})
+            self.session.post(f"{self.base_url}/fapi/v1/marginType?{q}", timeout=6)
+        except:
+            pass
+
     def place_market_order(self, symbol: str, side: str, qty: float):
         params = {"symbol": symbol, "side": side, "type": "MARKET", "quantity": qty}
         q = self._sign_query(params)
@@ -155,11 +162,24 @@ class BinanceFuturesClient:
 class ProTraderV8Bot:
     def __init__(self, client: BinanceFuturesClient):
         self.client = client
-        self.risk_pct = 0.01  # Strict 1% account risk
+        self.risk_pct = 0.01  # Strict 1% account risk (default, overridden by config)
         self.scanner = UniverseScanner(min_volume_usd=10_000_000, testnet=True)
         self.core_watchlist = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "DOGEUSDT", "XRPUSDT", "NEARUSDT", "SUIUSDT"]
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "TRT-V8-Bot"})
+        self._config_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_config.json")
+
+    def _load_runtime_config(self):
+        """Load runtime-adjustable config from bot_config.json (set by chat bot)."""
+        defaults = {"risk_pct": 1.0, "leverage": 5, "margin_type": "CROSSED"}
+        try:
+            if os.path.exists(self._config_file):
+                with open(self._config_file, "r") as f:
+                    cfg = json.load(f)
+                    return {**defaults, **cfg}
+        except Exception:
+            pass
+        return defaults
 
     def fetch_klines(self, symbol: str, interval: str, limit: int = 50) -> pd.DataFrame:
         path = f"/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}"
@@ -773,8 +793,15 @@ class ProTraderV8Bot:
         qty_prec, price_prec = self.client.get_symbol_precision(sig.symbol)
 
         try:
-            self.client.set_leverage(sig.symbol, 5)
-            print(f"   1. Executing MARKET {order_side} {sig.qty} {sig.symbol}...")
+            cfg = self._load_runtime_config()
+            lev = int(cfg.get("leverage", 5))
+            margin_type = cfg.get("margin_type", "CROSSED")
+            try:
+                self.client.set_margin_type(sig.symbol, margin_type)
+            except Exception:
+                pass
+            self.client.set_leverage(sig.symbol, lev)
+            print(f"   1. Executing MARKET {order_side} {sig.qty} {sig.symbol} (Lev: {lev}x, Margin: {margin_type})...")
             res = self.client.place_market_order(sig.symbol, order_side, sig.qty)
             print(f"      ✓ Fill Success! OrderId: {res.get('orderId')}")
 
@@ -849,6 +876,10 @@ class ProTraderV8Bot:
             print(f"[STATUS EXPORT ERROR]: {e}")
 
     def run_cycle(self):
+        # Refresh dynamic runtime config from bot_config.json if updated via chat bot
+        cfg = self._load_runtime_config()
+        self.risk_pct = float(cfg.get("risk_pct", 1.0)) / 100.0
+
         balance = self.client.get_account_balance()
         open_pos = self.client.get_open_positions()
         active_coins = {p["symbol"] for p in open_pos}
