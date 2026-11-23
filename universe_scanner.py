@@ -126,6 +126,10 @@ class UniverseScanner:
 
             box_pct = (box_range / mid) * 100.0
 
+            # Filter dead/ghost pairs (like flatlined testnet feeds with < 0.6% 4h range)
+            if box_pct < 0.60:
+                return None
+
             curr = df.iloc[-1]
             close = curr["close"]
             open_p = curr["open"]
@@ -220,12 +224,18 @@ class UniverseScanner:
         gainers = overview.get("gainers", [])
         losers = overview.get("losers", [])
 
-        # Priority set: Top volume + Top gainers + Top losers
+        # Priority set: Major Liquid Core + Top gainers + Top losers + Liquid volume
+        core_priority = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "DOGEUSDT", "XRPUSDT", "SUIUSDT", "NEARUSDT", "AVAXUSDT", "LINKUSDT"]
         pool_symbols = []
+        for c in core_priority:
+            if not self.testnet or c in self.testnet_symbols:
+                pool_symbols.append(c)
         for g in gainers[:6]:
-            pool_symbols.append(g["symbol"])
+            if g["symbol"] not in pool_symbols:
+                pool_symbols.append(g["symbol"])
         for l in losers[:6]:
-            pool_symbols.append(l["symbol"])
+            if l["symbol"] not in pool_symbols:
+                pool_symbols.append(l["symbol"])
         for item in liquid[:25]:
             if item["symbol"] not in pool_symbols:
                 pool_symbols.append(item["symbol"])
@@ -240,7 +250,7 @@ class UniverseScanner:
             if res:
                 if res["is_bullish"] or res["is_bearish"]:
                     breakout_signals.append(res)
-                elif res["box_pct"] <= 3.2:
+                elif 0.60 <= res["box_pct"] <= 3.80:
                     squeezes.append(res)
             time.sleep(0.04)  # Prevent rate limits
 

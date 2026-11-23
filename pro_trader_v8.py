@@ -356,6 +356,10 @@ class ProTraderV8Bot:
             vol_surge = squeeze_info.get("vol_surge", 1.0)
             cur_price = round(squeeze_info.get("price", (box_high + box_low) / 2.0), price_prec)
 
+            # Reject dead/zombie pairs (< 0.6% 4h range like flatlined FXSUSDT)
+            if box_pct < 0.60:
+                return None
+
             risk_usd = round(balance * self.risk_pct, 2)
             if risk_usd < 10.0:
                 risk_usd = 10.0
@@ -463,6 +467,107 @@ class ProTraderV8Bot:
                     htf_bias=htf_bias,
                     detected_timestamp=time.time()
                 )
+
+            elif htf_bias == "NEUTRAL":
+                dist_to_high = box_high - cur_price
+                dist_to_low = cur_price - box_low
+                is_closer_high = dist_to_high <= dist_to_low
+                if is_closer_high:
+                    direction = "LONG"
+                    entry_price = round(box_high * 1.001, price_prec)
+                    raw_sl = box_low * 0.998
+                    sl_dist = entry_price - raw_sl
+                    sl_dist_pct = (sl_dist / entry_price) * 100.0
+                    if sl_dist_pct < 0.80:
+                        raw_sl = entry_price * 0.991
+                        sl_dist = entry_price - raw_sl
+                        sl_dist_pct = 0.90
+                    elif sl_dist_pct > 2.20:
+                        raw_sl = entry_price * 0.985
+                        sl_dist = entry_price - raw_sl
+                        sl_dist_pct = 1.50
+                    sl_price = round(raw_sl, price_prec)
+                    tp1_price = round(entry_price + (1.8 * sl_dist), price_prec)
+                    tp2_price = round(entry_price + (3.5 * sl_dist), price_prec)
+                    target_move = round(((tp2_price - entry_price) / entry_price) * 100.0, 2)
+                    qty = round(risk_usd / sl_dist, qty_prec) if sl_dist > 0 else 0
+                    if qty <= 0:
+                        return None
+                    score = int(84 - (box_pct * 3))
+                    score = min(92, max(75, score))
+                    grade = "A High Probability" if score >= 85 else "B+ Setup"
+                    return TradeSignal(
+                        symbol=symbol,
+                        direction="LONG",
+                        module="4H SQUEEZE BREAKOUT SETUP",
+                        entry_price=entry_price,
+                        current_price=cur_price,
+                        sl_price=sl_price,
+                        tp1_price=tp1_price,
+                        tp2_price=tp2_price,
+                        target_move_pct=target_move,
+                        sl_dist_pct=round(sl_dist_pct, 2),
+                        rr_ratio=3.5,
+                        risk_usd=risk_usd,
+                        qty=qty,
+                        reason=f"🎯 4H Squeeze ({box_pct}%) Breakout Plan: Range breakout above ${box_high}",
+                        quality_score=score,
+                        quality_grade=grade,
+                        trigger_type="BREAKOUT_TRIGGER",
+                        vol_surge=vol_surge,
+                        box_pct=box_pct,
+                        disp_pct=50.0,
+                        htf_bias=htf_bias,
+                        detected_timestamp=time.time()
+                    )
+                else:
+                    direction = "SHORT"
+                    entry_price = round(box_low * 0.999, price_prec)
+                    raw_sl = box_high * 1.002
+                    sl_dist = raw_sl - entry_price
+                    sl_dist_pct = (sl_dist / entry_price) * 100.0
+                    if sl_dist_pct < 0.80:
+                        raw_sl = entry_price * 1.009
+                        sl_dist = raw_sl - entry_price
+                        sl_dist_pct = 0.90
+                    elif sl_dist_pct > 2.20:
+                        raw_sl = entry_price * 1.015
+                        sl_dist = raw_sl - entry_price
+                        sl_dist_pct = 1.50
+                    sl_price = round(raw_sl, price_prec)
+                    tp1_price = round(entry_price - (1.8 * sl_dist), price_prec)
+                    tp2_price = round(entry_price - (3.5 * sl_dist), price_prec)
+                    target_move = round(((entry_price - tp2_price) / entry_price) * 100.0, 2)
+                    qty = round(risk_usd / sl_dist, qty_prec) if sl_dist > 0 else 0
+                    if qty <= 0:
+                        return None
+                    score = int(84 - (box_pct * 3))
+                    score = min(92, max(75, score))
+                    grade = "A High Probability" if score >= 85 else "B+ Setup"
+                    return TradeSignal(
+                        symbol=symbol,
+                        direction="SHORT",
+                        module="4H SQUEEZE BREAKDOWN SETUP",
+                        entry_price=entry_price,
+                        current_price=cur_price,
+                        sl_price=sl_price,
+                        tp1_price=tp1_price,
+                        tp2_price=tp2_price,
+                        target_move_pct=target_move,
+                        sl_dist_pct=round(sl_dist_pct, 2),
+                        rr_ratio=3.5,
+                        risk_usd=risk_usd,
+                        qty=qty,
+                        reason=f"🎯 4H Squeeze ({box_pct}%) Breakdown Plan: Range breakdown below ${box_low}",
+                        quality_score=score,
+                        quality_grade=grade,
+                        trigger_type="BREAKOUT_TRIGGER",
+                        vol_surge=vol_surge,
+                        box_pct=box_pct,
+                        disp_pct=50.0,
+                        htf_bias=htf_bias,
+                        detected_timestamp=time.time()
+                    )
         except Exception:
             pass
         return None
