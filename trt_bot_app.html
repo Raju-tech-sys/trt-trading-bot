@@ -1049,15 +1049,26 @@
       }
     }
 
-    // Enter key on password field
-    document.addEventListener("DOMContentLoaded", () => {
-      document.getElementById("chat-pw-input").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") chatAuthenticate();
-      });
-      document.getElementById("chat-input").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") chatSendMessage();
-      });
-    });
+    // Enter key listeners
+    function initChatEvents() {
+      const pwInput = document.getElementById("chat-pw-input");
+      if (pwInput) {
+        pwInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") chatAuthenticate();
+        });
+      }
+      const chatInput = document.getElementById("chat-input");
+      if (chatInput) {
+        chatInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") chatSendMessage();
+        });
+      }
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initChatEvents);
+    } else {
+      initChatEvents();
+    }
 
     async function chatSendMessage() {
       const input = document.getElementById("chat-input");
@@ -1070,12 +1081,25 @@
       // Show typing indicator
       const typingId = appendBotTyping();
 
+      if (!chatPassword) {
+        removeBotTyping(typingId);
+        document.getElementById("chat-password-overlay").classList.remove("hidden");
+        document.getElementById("chat-pw-input").focus();
+        appendBotMessage("🔒 কমান্ড দেওয়ার আগে পাসওয়ার্ড দিয়ে আনলক করুন।", "error");
+        return;
+      }
+
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: chatPassword, message: msg })
+          body: JSON.stringify({ password: chatPassword, message: msg }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         removeBotTyping(typingId);
 
@@ -1085,6 +1109,19 @@
           sessionStorage.removeItem("trt_chat_pw");
           document.getElementById("chat-password-overlay").classList.remove("hidden");
           document.getElementById("chat-pw-input").focus();
+          appendBotMessage("🔒 পাসওয়ার্ড মেয়াদোত্তীর্ণ বা ভুল। আবার পাসওয়ার্ড দিন।", "error");
+          return;
+        }
+
+        if (!res.ok) {
+          let errText = "";
+          try {
+            const errData = await res.json();
+            errText = errData.reply || errData.error || "";
+          } catch (_) {
+            errText = `HTTP Error ${res.status}`;
+          }
+          appendBotMessage(errText || `❌ সার্ভার এরর (${res.status})। আবার চেষ্টা করুন।`, "error");
           return;
         }
 
@@ -1092,7 +1129,9 @@
         appendBotMessage(data.reply || "❌ Empty response.", data.type);
       } catch (e) {
         removeBotTyping(typingId);
-        appendBotMessage("❌ Connection error. Server চেক করুন।", "error");
+        console.error("Chat fetch error:", e);
+        const errMsg = e.name === "AbortError" ? "টাইমআউট (১৫ সেকেন্ড অতিক্রম করেছে)" : "সার্ভার রেসপন্স করছে না";
+        appendBotMessage(`❌ ${errMsg}। অনুগ্রহ করে আবার চেষ্টা করুন।`, "error");
       }
     }
 

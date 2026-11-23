@@ -14,7 +14,7 @@ import hashlib
 import urllib.parse
 import threading
 import requests
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 API_KEY = "iJ35G0Rsox6fnJ2NRFqgxLHX1v4RbjcPuld22s3IoWZ3XQvAupXk2NkddolGMQjy"
 API_SECRET = b"7lka4R7YfYeBXXIoKc8vC0Smb5THDJGUYU0LfGHorL5KgF67OZb1i77TmmqRX1mG"
@@ -552,7 +552,13 @@ def _cmd_set_margin(msg: str):
 
         display = "Cross (ক্রস)" if new_type == "CROSSED" else "Isolated (আইসোলেটেড)"
         return {
-            "reply": f"⚙️ **Margin Type আপডেট সফল!**\n\n• আগে: **{old_type}**\n• এখন: **{display}**\n\n_পরবর্তী সব নতুন ট্রেডে {display} মার্জিন ব্যবহার হবে।_",
+            "reply": (
+                f"⚙️ **Margin Type আপডেট সফল!**\n\n"
+                f"• আগে: **{old_type}**\n"
+                f"• এখন: **{display}**\n\n"
+                f"_বটের পরবর্তী সব নতুন ট্রেড {display} মার্জিনে ওপেন হবে।_\n"
+                f"_(নোট: ওপেন ট্রেডগুলোর মার্জিন বাইন্যান্স রুলস অনুযায়ী ক্লোজ হওয়ার পর নতুন মার্জিনে কাজ করবে।)_"
+            ),
             "type": "config"
         }
     except Exception as e:
@@ -787,7 +793,28 @@ def fetch_live_binance_state() -> dict:
 # ═══════════════════════════════════════════════════════════════
 #  HTTP REQUEST HANDLER
 # ═══════════════════════════════════════════════════════════════
+_CACHE_LOCK = threading.Lock()
+_LAST_STATE_TIME = 0.0
+_CACHED_STATE = None
+
+def get_live_binance_state_cached() -> dict:
+    global _LAST_STATE_TIME, _CACHED_STATE
+    now = time.time()
+    with _CACHE_LOCK:
+        if _CACHED_STATE and (now - _LAST_STATE_TIME < 1.5):
+            return _CACHED_STATE
+    
+    fresh = fetch_live_binance_state()
+    with _CACHE_LOCK:
+        _CACHED_STATE = fresh
+        _LAST_STATE_TIME = now
+    return fresh
+
+
 class RealTimeRequestHandler(SimpleHTTPRequestHandler):
+    def _clean_path(self) -> str:
+        return self.path.split("?")[0].rstrip("/")
+
     def end_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE")
@@ -798,14 +825,16 @@ class RealTimeRequestHandler(SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         """Handle CORS preflight requests."""
         self.send_response(200)
+        self.send_header("Content-Length", "0")
         self.end_headers()
 
     def do_GET(self):
-        if self.path == "/" or self.path == "/index.html":
+        clean_path = self._clean_path()
+        if clean_path == "" or clean_path == "/index.html":
             self.path = "/trt_bot_app.html"
             return super().do_GET()
 
-        elif self.path.startswith("/api/debug"):
+        elif clean_path.startswith("/api/debug"):
             dir_path = os.path.dirname(os.path.abspath(__file__))
             status_file = os.path.join(dir_path, "live_status.json")
             debug_info = {
@@ -844,8 +873,8 @@ class RealTimeRequestHandler(SimpleHTTPRequestHandler):
             self.wfile.write(payload)
             return
 
-        elif self.path.startswith("/api/live"):
-            data = fetch_live_binance_state()
+        elif clean_path.startswith("/api/live"):
+            data = get_live_binance_state_cached()
             payload = json.dumps(data).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -858,7 +887,8 @@ class RealTimeRequestHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         """Handle chat bot API requests."""
-        if self.path == "/api/chat":
+        clean_path = self._clean_path()
+        if clean_path == "/api/chat":
             try:
                 content_length = int(self.headers.get("Content-Length", 0))
                 post_data = self.rfile.read(content_length)
@@ -903,7 +933,7 @@ class RealTimeRequestHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(resp)
             return
 
-        elif self.path == "/api/chat/auth":
+        elif clean_path == "/api/chat/auth":
             try:
                 content_length = int(self.headers.get("Content-Length", 0))
                 post_data = self.rfile.read(content_length)
@@ -931,6 +961,7 @@ class RealTimeRequestHandler(SimpleHTTPRequestHandler):
             return
 
         self.send_response(404)
+        self.send_header("Content-Length", "0")
         self.end_headers()
 
     def log_message(self, format, *args):
@@ -941,7 +972,12 @@ class RealTimeRequestHandler(SimpleHTTPRequestHandler):
 
 def run_server():
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    server = HTTPServer(("0.0.0.0", PORT), RealTimeRequestHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), RealTimeRequestHandler)
+    print(f"🚀 [REAL-TIME WEB SERVER] Running at http://localhost:{PORT} (Multi-Threaded)")
+    print(f"   API Endpoint: http://localhost:{PORT}/api/live")
+    print(f"   Chat Bot API: http://localhost:{PORT}/api/chat")
+    print(f"   Chat Password: {'*' * len(CHAT_PASSWORD)} (Set CHAT_PASSWORD env var to change)")
+    server.serve_forever()
     print(f"🚀 [REAL-TIME WEB SERVER] Running at http://localhost:{PORT}")
     print(f"   API Endpoint: http://localhost:{PORT}/api/live")
     print(f"   Chat Bot API: http://localhost:{PORT}/api/chat")
