@@ -115,6 +115,7 @@
                 <th class="py-2.5 px-3">Size / Notional</th>
                 <th class="py-2.5 px-3">Entry Price</th>
                 <th class="py-2.5 px-3">Mark Price</th>
+                <th class="py-2.5 px-3">Stop Loss (SL)</th>
                 <th class="py-2.5 px-3">Unrealized PnL (USDT)</th>
                 <th class="py-2.5 px-3">Liquidation</th>
                 <th class="py-2.5 px-3">Protection Status</th>
@@ -414,14 +415,14 @@
       if (!data.open_positions || data.open_positions.length === 0) {
         posTbody.innerHTML = `
           <tr>
-            <td colspan="8" class="py-6 text-center">
+            <td colspan="9" class="py-6 text-center">
               <div class="flex flex-col items-center justify-center space-y-1">
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                   <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2"></span>
                   0 Active Positions on Binance (100% Free Capital in Wallet)
                 </span>
                 <p class="text-xs text-slate-400 mt-1">
-                  Pro Trader v6.0 is screening 8 pairs for safe structural A+ setups. No risky trades open.
+                  Pro Trader v8.0 is screening 146+ pairs for safe structural A+ setups. No risky trades open.
                 </p>
               </div>
             </td>
@@ -432,17 +433,44 @@
           const isWin = p.unrealizedPnl >= 0;
           const pnlColor = isWin ? "text-emerald-400" : "text-rose-400";
           const sideColor = p.side === "LONG" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400";
+          
+          const entryStr = p.entryPrice >= 10 ? p.entryPrice.toFixed(2) : p.entryPrice.toFixed(4);
+          const markStr = p.markPrice >= 10 ? p.markPrice.toFixed(2) : p.markPrice.toFixed(4);
+          const liqStr = p.liquidationPrice > 0 ? (p.liquidationPrice >= 10 ? `$${p.liquidationPrice.toFixed(2)}` : `$${p.liquidationPrice.toFixed(4)}`) : "None (Safe)";
+          
+          let slDisplay = "—";
+          let slSubtext = "";
+          if (p.slPrice) {
+            const slFormatted = p.slPrice >= 10 ? p.slPrice.toFixed(2) : p.slPrice.toFixed(4);
+            const distStr = p.slDistPct ? `(${p.slDistPct > 0 ? '+' : ''}${p.slDistPct}%)` : '';
+            if (p.isBreakeven) {
+              slDisplay = `<span class="text-emerald-400 font-bold">$${slFormatted}</span>`;
+              slSubtext = `<span class="badge bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] mt-0.5">Risk-Free BE</span>`;
+            } else {
+              slDisplay = `<span class="text-rose-400 font-bold">$${slFormatted}</span>`;
+              slSubtext = `<span class="text-[10px] text-slate-400 font-mono mt-0.5">${distStr}</span>`;
+            }
+          } else {
+            slDisplay = `<span class="text-slate-400">Guaranteed</span>`;
+          }
+
           const tr = document.createElement("tr");
           tr.className = "hover:bg-slate-800/40 transition";
           tr.innerHTML = `
             <td class="py-3 px-3 font-bold text-white">${p.symbol}</td>
             <td class="py-3 px-3"><span class="badge ${sideColor}">${p.side}</span></td>
             <td class="py-3 px-3">${p.size} (~$${(p.size * p.entryPrice).toFixed(1)})</td>
-            <td class="py-3 px-3 font-semibold text-slate-200">$${p.entryPrice.toFixed(2)}</td>
-            <td class="py-3 px-3 font-semibold text-cyan-300">$${p.markPrice.toFixed(2)}</td>
+            <td class="py-3 px-3 font-semibold text-slate-200">$${entryStr}</td>
+            <td class="py-3 px-3 font-semibold text-cyan-300">$${markStr}</td>
+            <td class="py-3 px-3">
+              <div class="flex flex-col">
+                <span class="font-mono">${slDisplay}</span>
+                ${slSubtext}
+              </div>
+            </td>
             <td class="py-3 px-3 font-bold ${pnlColor}">${isWin ? "+" : ""}$${p.unrealizedPnl.toFixed(2)}</td>
-            <td class="py-3 px-3 text-slate-400">$${p.liquidationPrice.toFixed(2)}</td>
-            <td class="py-3 px-3"><span class="badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Exchange SL Active ✓</span></td>
+            <td class="py-3 px-3 text-slate-400">${liqStr}</td>
+            <td class="py-3 px-3"><span class="badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Exchange SL Active ✓</span></td>
           `;
           posTbody.appendChild(tr);
         });

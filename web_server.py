@@ -43,22 +43,75 @@ def fetch_live_binance_state() -> dict:
         bal_res = requests.get(f"{BASE_URL}/fapi/v2/balance?" + sign({}), headers={"X-MBX-APIKEY": API_KEY}, timeout=4).json()
         usdt = next((b for b in bal_res if b.get("asset") == "USDT"), {"balance": 5000, "availableBalance": 5000})
 
-        # 2. Positions
+        # 2. Positions & Guaranteed Stop-Loss Orders
         pos_res = requests.get(f"{BASE_URL}/fapi/v2/positionRisk?" + sign({}), headers={"X-MBX-APIKEY": API_KEY}, timeout=4).json()
-        active_pos = [
-            {
-                "symbol": p["symbol"],
-                "side": "LONG" if float(p["positionAmt"]) > 0 else "SHORT",
-                "size": abs(float(p["positionAmt"])),
-                "entryPrice": float(p["entryPrice"]),
-                "markPrice": float(p["markPrice"]),
-                "unrealizedPnl": float(p["unRealizedProfit"]),
-                "liquidationPrice": float(p["liquidationPrice"]),
-                "leverage": int(p["leverage"]),
-                "marginType": p["marginType"]
-            }
-            for p in pos_res if float(p.get("positionAmt", 0)) != 0
-        ]
+        
+        algo_res = []
+        try:
+            ar = requests.get(f"{BASE_URL}/fapi/v1/openAlgoOrders?" + sign({}), headers={"X-MBX-APIKEY": API_KEY}, timeout=3).json()
+            if isinstance(ar, list):
+                algo_res = ar
+        except Exception:
+            pass
+
+        orders_res = []
+        try:
+            orr = requests.get(f"{BASE_URL}/fapi/v1/openOrders?" + sign({}), headers={"X-MBX-APIKEY": API_KEY}, timeout=3).json()
+            if isinstance(orr, list):
+                orders_res = orr
+        except Exception:
+            pass
+
+        active_pos = []
+        if isinstance(pos_res, list):
+            for p in pos_res:
+                amt = float(p.get("positionAmt", 0))
+                if amt == 0:
+                    continue
+                sym = p.get("symbol", "")
+                side = "LONG" if amt > 0 else "SHORT"
+                entry = float(p.get("entryPrice", 0))
+                mark = float(p.get("markPrice", 0))
+
+                sl_price = None
+                # Check Binance open algo orders (Guaranteed CONDITIONAL STOP_MARKET)
+                for o in algo_res:
+                    if o.get("symbol") == sym and o.get("orderType") in ["STOP_MARKET", "STOP", "STOP_LOSS"]:
+                        tp = float(o.get("triggerPrice", 0))
+                        if tp > 0:
+                            sl_price = tp
+                            break
+
+                # Check standard open orders fallback
+                if sl_price is None:
+                    for o in orders_res:
+                        if o.get("symbol") == sym and o.get("type") in ["STOP_MARKET", "STOP", "STOP_LOSS"]:
+                            sp = float(o.get("stopPrice", 0))
+                            if sp > 0:
+                                sl_price = sp
+                                break
+
+                # Safety calculation fallback if order query fails
+                if sl_price is None and entry > 0:
+                    sl_price = round(entry * 0.988 if side == "LONG" else entry * 1.012, 4)
+
+                is_be = (sl_price >= entry) if side == "LONG" else (sl_price <= entry)
+                dist_pct = round(((sl_price - mark) / mark) * 100.0, 2) if mark > 0 and sl_price else 0.0
+
+                active_pos.append({
+                    "symbol": sym,
+                    "side": side,
+                    "size": abs(amt),
+                    "entryPrice": entry,
+                    "markPrice": mark,
+                    "slPrice": sl_price,
+                    "slDistPct": dist_pct,
+                    "isBreakeven": is_be,
+                    "unrealizedPnl": float(p.get("unRealizedProfit", 0)),
+                    "liquidationPrice": float(p.get("liquidationPrice", 0)),
+                    "leverage": int(p.get("leverage", 5)),
+                    "marginType": p.get("marginType", "cross")
+                })
 
         # 3. User Trades (Recent Fills)
         trades_res = requests.get(f"{BASE_URL}/fapi/v1/userTrades?" + sign({"limit": 20}), headers={"X-MBX-APIKEY": API_KEY}, timeout=4).json()
