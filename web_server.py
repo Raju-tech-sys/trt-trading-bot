@@ -155,6 +155,14 @@ class RealTimeRequestHandler(SimpleHTTPRequestHandler):
                 "last_known_gainers": len(LAST_KNOWN_STATUS.get("gainers", [])),
                 "last_known_squeezes": len(LAST_KNOWN_STATUS.get("squeezes", []))
             }
+            try:
+                rf = requests.get("https://fapi.binance.com/fapi/v1/ticker/24hr", timeout=3)
+                debug_info["fapi_status"] = rf.status_code
+                debug_info["fapi_type"] = type(rf.json()).__name__
+                if not isinstance(rf.json(), list):
+                    debug_info["fapi_resp"] = str(rf.json())[:100]
+            except Exception as e:
+                debug_info["fapi_err"] = str(e)
             if os.path.exists(status_file):
                 try:
                     debug_info["status_file_size"] = os.path.getsize(status_file)
