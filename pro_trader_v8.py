@@ -162,8 +162,30 @@ class ProTraderV8Bot:
         self.session.headers.update({"User-Agent": "TRT-V8-Bot"})
 
     def fetch_klines(self, symbol: str, interval: str, limit: int = 50) -> pd.DataFrame:
-        url = f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}"
-        r = self.session.get(url, timeout=5).json()
+        path = f"/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}"
+        r = None
+        try:
+            res = self.session.get(f"https://fapi.binance.com{path}", timeout=4)
+            if res.status_code == 200:
+                data = res.json()
+                if isinstance(data, list):
+                    r = data
+        except Exception:
+            pass
+
+        if not r or not isinstance(r, list):
+            try:
+                res = self.session.get(f"https://testnet.binancefuture.com{path}", timeout=4)
+                if res.status_code == 200:
+                    data = res.json()
+                    if isinstance(data, list):
+                        r = data
+            except Exception:
+                pass
+
+        if not r or not isinstance(r, list):
+            return pd.DataFrame()
+
         df = pd.DataFrame(r, columns=[
             "open_time", "open", "high", "low", "close", "volume",
             "close_time", "quote_volume", "trades", "taker_buy_base",

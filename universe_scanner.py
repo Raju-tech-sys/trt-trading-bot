@@ -20,6 +20,27 @@ class UniverseScanner:
         self.last_testnet_refresh = 0
         self._refresh_testnet_symbols()
 
+    def _get_api_endpoint(self, path: str, timeout: int = 6):
+        """Try mainnet API first; if restricted (HTTP 451/403) or fails, fallback to testnet."""
+        try:
+            r = self.session.get(f"https://fapi.binance.com{path}", timeout=timeout)
+            if r.status_code == 200:
+                data = r.json()
+                if isinstance(data, list) or (isinstance(data, dict) and "code" not in data):
+                    return data
+        except Exception:
+            pass
+
+        try:
+            r = self.session.get(f"https://testnet.binancefuture.com{path}", timeout=timeout)
+            if r.status_code == 200:
+                data = r.json()
+                if isinstance(data, list) or (isinstance(data, dict) and "code" not in data):
+                    return data
+        except Exception as e:
+            print(f"[API ERROR] Failed to fetch {path}: {e}")
+        return None
+
     def _refresh_testnet_symbols(self):
         now = time.time()
         if now - self.last_testnet_refresh > 3600 or not self.testnet_symbols:
@@ -35,12 +56,12 @@ class UniverseScanner:
                 print(f"[SCANNER] Error refreshing exchangeInfo: {e}")
 
     def fetch_market_overview(self) -> Dict:
-        """Fetch 24hr tickers for all pairs from Binance mainnet (for real volume/momentum)."""
+        """Fetch 24hr tickers for all pairs from Binance mainnet (with auto testnet fallback for US/cloud IPs)."""
         self._refresh_testnet_symbols()
         try:
-            r = self.session.get("https://fapi.binance.com/fapi/v1/ticker/24hr", timeout=10).json()
+            r = self._get_api_endpoint("/fapi/v1/ticker/24hr", timeout=10)
             if not isinstance(r, list):
-                return {"gainers": [], "losers": [], "liquid_universe": []}
+                return {"gainers": [], "losers": [], "liquid_universe": [], "total_eligible": 0}
 
             eligible = []
             for item in r:
@@ -83,8 +104,7 @@ class UniverseScanner:
     def analyze_breakout_potential(self, symbol: str) -> Optional[Dict]:
         """Deep analysis of a single coin on 15m timeframe for institutional breakout/breakdown."""
         try:
-            url = f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval=15m&limit=30"
-            r = self.session.get(url, timeout=4).json()
+            r = self._get_api_endpoint(f"/fapi/v1/klines?symbol={symbol}&interval=15m&limit=30", timeout=4)
             if not isinstance(r, list) or len(r) < 25:
                 return None
 
@@ -126,9 +146,7 @@ class UniverseScanner:
             lower_wick_ratio = lower_wick / rng if rng > 0 else 1.0
 
             # Multi-timeframe trend check on 1H
-            # Fetch 1H klines
-            url_1h = f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval=1h&limit=25"
-            r_1h = self.session.get(url_1h, timeout=4).json()
+            r_1h = self._get_api_endpoint(f"/fapi/v1/klines?symbol={symbol}&interval=1h&limit=25", timeout=4)
             htf_bias = "NEUTRAL"
             if isinstance(r_1h, list) and len(r_1h) >= 20:
                 closes_1h = [float(x[4]) for x in r_1h]
