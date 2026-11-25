@@ -68,6 +68,9 @@ class BinanceFuturesClient:
             "X-MBX-APIKEY": self.api_key,
             "User-Agent": "TRT-Pro-Trader-v8.0"
         })
+        proxy = os.environ.get("BINANCE_PROXY", "").strip()
+        if proxy:
+            self.session.proxies = {"http": proxy, "https": proxy}
 
     def _sign_query(self, params: dict) -> str:
         params["timestamp"] = int(time.time() * 1000)
@@ -182,7 +185,40 @@ class ProTraderV8Bot:
         self.core_watchlist = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "DOGEUSDT", "XRPUSDT", "NEARUSDT", "SUIUSDT"]
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "TRT-V8-Bot"})
+        proxy = os.environ.get("BINANCE_PROXY", "").strip()
+        if proxy:
+            self.session.proxies = {"http": proxy, "https": proxy}
         self._config_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_config.json")
+
+    def calculate_position_size(self, balance: float, price: float, sl_dist: float, qty_prec: int) -> tuple:
+        """
+        Micro-Balance Aware Sizing:
+        Supports accounts from $10 up to $100k+.
+        Ensures position does not exceed 45% of total 5x buying power per trade,
+        while respecting Binance's min $5 notional rule.
+        Returns: (qty, risk_usd)
+        """
+        if sl_dist <= 0 or price <= 0 or balance <= 0:
+            return 0.0, 0.0
+
+        risk_usd = round(balance * self.risk_pct, 2)
+        min_risk = 0.50 if balance <= 100 else 5.0
+        max_risk = max(1.0, round(balance * 0.05, 2))  # Max 5% hard cap
+        risk_usd = max(min_risk, min(risk_usd, max_risk))
+
+        qty = round(risk_usd / sl_dist, qty_prec)
+        notional = qty * price
+
+        # Safety cap: no single trade uses > 45% of total 5x purchasing power
+        max_allowed_notional = (balance * 5.0) * 0.45
+        if notional > max_allowed_notional and max_allowed_notional >= 5.0:
+            qty = round(max_allowed_notional / price, qty_prec)
+            notional = qty * price
+
+        if notional < 5.0 or qty <= 0:
+            return 0.0, 0.0
+
+        return qty, risk_usd
 
     def _load_runtime_config(self):
         """Load runtime-adjustable config from bot_config.json (set by chat bot)."""
@@ -299,7 +335,7 @@ class ProTraderV8Bot:
             tp2_price = round(price + (3.5 * sl_dist), price_prec)
             target_move = round(((tp2_price - price) / price) * 100.0, 2)
 
-            qty = round(risk_usd / sl_dist, qty_prec)
+            qty, risk_usd = self.calculate_position_size(balance, price, sl_dist, qty_prec)
             if qty <= 0:
                 return None
 
@@ -348,7 +384,7 @@ class ProTraderV8Bot:
             tp2_price = round(price - (3.5 * sl_dist), price_prec)
             target_move = round(((price - tp2_price) / price) * 100.0, 2)
 
-            qty = round(risk_usd / sl_dist, qty_prec)
+            qty, risk_usd = self.calculate_position_size(balance, price, sl_dist, qty_prec)
             if qty <= 0:
                 return None
 
@@ -418,7 +454,7 @@ class ProTraderV8Bot:
                 tp1_price = round(entry_price + (1.8 * sl_dist), price_prec)
                 tp2_price = round(entry_price + (3.5 * sl_dist), price_prec)
                 target_move = round(((tp2_price - entry_price) / entry_price) * 100.0, 2)
-                qty = round(risk_usd / sl_dist, qty_prec) if sl_dist > 0 else 0
+                qty, risk_usd = self.calculate_position_size(balance, entry_price, sl_dist, qty_prec)
                 if qty <= 0:
                     return None
 
@@ -470,7 +506,7 @@ class ProTraderV8Bot:
                 tp1_price = round(entry_price - (1.8 * sl_dist), price_prec)
                 tp2_price = round(entry_price - (3.5 * sl_dist), price_prec)
                 target_move = round(((entry_price - tp2_price) / entry_price) * 100.0, 2)
-                qty = round(risk_usd / sl_dist, qty_prec) if sl_dist > 0 else 0
+                qty, risk_usd = self.calculate_position_size(balance, entry_price, sl_dist, qty_prec)
                 if qty <= 0:
                     return None
 
@@ -691,7 +727,7 @@ class ProTraderV8Bot:
                 sl_price = round(raw_sl, price_prec)
                 target_move = round(((tp2_price - close) / close) * 100.0, 2)
 
-                qty = round(risk_usd / sl_dist, qty_prec)
+                qty, risk_usd = self.calculate_position_size(balance, close, sl_dist, qty_prec)
                 if qty <= 0:
                     return None
 
@@ -750,7 +786,7 @@ class ProTraderV8Bot:
                 sl_price = round(raw_sl, price_prec)
                 target_move = round(((close - tp2_price) / close) * 100.0, 2)
 
-                qty = round(risk_usd / sl_dist, qty_prec)
+                qty, risk_usd = self.calculate_position_size(balance, close, sl_dist, qty_prec)
                 if qty <= 0:
                     return None
 

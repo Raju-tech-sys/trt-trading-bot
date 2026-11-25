@@ -5,6 +5,7 @@ Scans all Binance Futures USDT pairs (> $10M volume) for:
 - Volatility Squeeze (Tightest consolidation boxes)
 - Institutional Breakout & Breakdown candidates with volume surge & wick filters
 """
+import os
 import time
 import requests
 import pandas as pd
@@ -16,6 +17,9 @@ class UniverseScanner:
         self.testnet = testnet
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "TRT-Universe-Scanner-v8.0"})
+        proxy = os.environ.get("BINANCE_PROXY", "").strip()
+        if proxy:
+            self.session.proxies = {"http": proxy, "https": proxy}
         self.testnet_symbols = set()
         self.last_testnet_refresh = 0
         self._refresh_testnet_symbols()

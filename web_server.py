@@ -36,26 +36,32 @@ def sign(params: dict) -> str:
     return f"{q}&signature={sig}"
 
 
+BINANCE_PROXY = os.environ.get("BINANCE_PROXY", "").strip()
+SESSION = requests.Session()
+SESSION.headers.update({"User-Agent": "TRT-Web-Server-v8.0"})
+if BINANCE_PROXY:
+    SESSION.proxies = {"http": BINANCE_PROXY, "https": BINANCE_PROXY}
+
 def _binance_signed_get(path: str, params: dict = None) -> dict:
     """Signed GET to Binance Futures Testnet."""
     if params is None:
         params = {}
     url = f"{BASE_URL}{path}?" + sign(params)
-    r = requests.get(url, headers={"X-MBX-APIKEY": API_KEY}, timeout=5)
+    r = SESSION.get(url, headers={"X-MBX-APIKEY": API_KEY}, timeout=5)
     return r.json()
 
 
 def _binance_signed_post(path: str, params: dict) -> dict:
     """Signed POST to Binance Futures Testnet."""
     url = f"{BASE_URL}{path}?" + sign(params)
-    r = requests.post(url, headers={"X-MBX-APIKEY": API_KEY}, timeout=6)
+    r = SESSION.post(url, headers={"X-MBX-APIKEY": API_KEY}, timeout=6)
     return r.json()
 
 
 def _binance_signed_delete(path: str, params: dict) -> dict:
     """Signed DELETE to Binance Futures Testnet."""
     url = f"{BASE_URL}{path}?" + sign(params)
-    r = requests.delete(url, headers={"X-MBX-APIKEY": API_KEY}, timeout=6)
+    r = SESSION.delete(url, headers={"X-MBX-APIKEY": API_KEY}, timeout=6)
     return r.json()
 
 
@@ -459,7 +465,7 @@ def _cmd_modify_sl(msg: str):
             "quantity": abs(amt)
         }
         q = sign(sl_params)
-        r = requests.post(f"{BASE_URL}/fapi/v1/algoOrder?{q}", headers={"X-MBX-APIKEY": API_KEY}, timeout=6)
+        r = SESSION.post(f"{BASE_URL}/fapi/v1/algoOrder?{q}", headers={"X-MBX-APIKEY": API_KEY}, timeout=6)
         sl_res = r.json()
 
         is_be = (new_sl >= entry) if side == "LONG" else (new_sl <= entry)
@@ -657,15 +663,15 @@ def fetch_live_binance_state() -> dict:
     global LAST_KNOWN_STATUS
     try:
         # 1. Balance
-        bal_res = requests.get(f"{BASE_URL}/fapi/v2/balance?" + sign({}), headers={"X-MBX-APIKEY": API_KEY}, timeout=4).json()
+        bal_res = SESSION.get(f"{BASE_URL}/fapi/v2/balance?" + sign({}), headers={"X-MBX-APIKEY": API_KEY}, timeout=4).json()
         usdt = next((b for b in bal_res if b.get("asset") == "USDT"), {"balance": 5000, "availableBalance": 5000})
 
         # 2. Positions & Guaranteed Stop-Loss Orders
-        pos_res = requests.get(f"{BASE_URL}/fapi/v2/positionRisk?" + sign({}), headers={"X-MBX-APIKEY": API_KEY}, timeout=4).json()
+        pos_res = SESSION.get(f"{BASE_URL}/fapi/v2/positionRisk?" + sign({}), headers={"X-MBX-APIKEY": API_KEY}, timeout=4).json()
         
         algo_res = []
         try:
-            ar = requests.get(f"{BASE_URL}/fapi/v1/openAlgoOrders?" + sign({}), headers={"X-MBX-APIKEY": API_KEY}, timeout=3).json()
+            ar = SESSION.get(f"{BASE_URL}/fapi/v1/openAlgoOrders?" + sign({}), headers={"X-MBX-APIKEY": API_KEY}, timeout=3).json()
             if isinstance(ar, list):
                 algo_res = ar
         except Exception:
@@ -673,7 +679,7 @@ def fetch_live_binance_state() -> dict:
 
         orders_res = []
         try:
-            orr = requests.get(f"{BASE_URL}/fapi/v1/openOrders?" + sign({}), headers={"X-MBX-APIKEY": API_KEY}, timeout=3).json()
+            orr = SESSION.get(f"{BASE_URL}/fapi/v1/openOrders?" + sign({}), headers={"X-MBX-APIKEY": API_KEY}, timeout=3).json()
             if isinstance(orr, list):
                 orders_res = orr
         except Exception:
@@ -744,7 +750,7 @@ def fetch_live_binance_state() -> dict:
                 })
 
         # 3. User Trades (Recent Fills)
-        trades_res = requests.get(f"{BASE_URL}/fapi/v1/userTrades?" + sign({"limit": 20}), headers={"X-MBX-APIKEY": API_KEY}, timeout=4).json()
+        trades_res = SESSION.get(f"{BASE_URL}/fapi/v1/userTrades?" + sign({"limit": 20}), headers={"X-MBX-APIKEY": API_KEY}, timeout=4).json()
         clean_trades = []
         if isinstance(trades_res, list):
             for t in reversed(trades_res):
