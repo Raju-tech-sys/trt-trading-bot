@@ -712,6 +712,18 @@ def fetch_live_binance_state() -> dict:
                 is_be = (sl_price >= entry) if side == "LONG" else (sl_price <= entry)
                 dist_pct = round(((sl_price - mark) / mark) * 100.0, 2) if mark > 0 and sl_price else 0.0
 
+                # Check if SL has been shifted to guaranteed profit
+                is_profit_sl = (sl_price > entry) if side == "LONG" else (sl_price < entry)
+                locked_profit_pct = round(abs((sl_price - entry) / entry) * 100.0, 2) if (is_profit_sl and entry > 0 and sl_price) else 0.0
+
+                # Profit % calculations (ROE % and Price % move)
+                lev = int(p.get("leverage", 5))
+                margin_type = str(p.get("marginType", "cross")).lower()
+                price_pnl_pct = round(((mark - entry) / entry * 100.0) if side == "LONG" else ((entry - mark) / entry * 100.0), 2) if entry > 0 else 0.0
+                position_initial_margin = (abs(amt) * entry) / lev if lev > 0 else 1.0
+                upnl = float(p.get("unRealizedProfit", 0))
+                roe_pct = round((upnl / position_initial_margin) * 100.0, 2) if position_initial_margin > 0 else 0.0
+
                 active_pos.append({
                     "symbol": sym,
                     "side": side,
@@ -721,10 +733,14 @@ def fetch_live_binance_state() -> dict:
                     "slPrice": sl_price,
                     "slDistPct": dist_pct,
                     "isBreakeven": is_be,
-                    "unrealizedPnl": float(p.get("unRealizedProfit", 0)),
+                    "isProfitSl": is_profit_sl,
+                    "lockedProfitPct": locked_profit_pct,
+                    "unrealizedPnl": upnl,
+                    "pnlPercent": roe_pct,
+                    "pricePnlPercent": price_pnl_pct,
                     "liquidationPrice": float(p.get("liquidationPrice", 0)),
-                    "leverage": int(p.get("leverage", 5)),
-                    "marginType": p.get("marginType", "cross")
+                    "leverage": lev,
+                    "marginType": margin_type
                 })
 
         # 3. User Trades (Recent Fills)
@@ -761,6 +777,17 @@ def fetch_live_binance_state() -> dict:
             except Exception:
                 time.sleep(0.05)
 
+        cfg = load_bot_config()
+        # Compute live execution leverage & margin string
+        if active_pos:
+            m_type = "Isolated" if "iso" in active_pos[0]["marginType"].lower() else "Cross"
+            live_exec_str = f"{active_pos[0]['leverage']}x {m_type}"
+            live_exec_sub = "Live Active Trade Margin"
+        else:
+            m_type = "Isolated" if cfg.get("margin_type") == "ISOLATED" else "Cross"
+            live_exec_str = f"{cfg.get('leverage', 5)}x {m_type}"
+            live_exec_sub = "Bot Configured Execution"
+
         return {
             "status": "ONLINE",
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
@@ -769,6 +796,9 @@ def fetch_live_binance_state() -> dict:
             "total_unrealized_pnl": round(sum(p["unrealizedPnl"] for p in active_pos), 2),
             "open_positions": active_pos,
             "recent_trades": clean_trades,
+            "execution_leverage_display": live_exec_str,
+            "execution_leverage_subtitle": live_exec_sub,
+            "bot_config": cfg,
             "screened_tokens": LAST_KNOWN_STATUS["screened"],
             "gainers": LAST_KNOWN_STATUS["gainers"],
             "losers": LAST_KNOWN_STATUS["losers"],

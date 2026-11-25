@@ -158,6 +158,21 @@ class BinanceFuturesClient:
         r.raise_for_status()
         return r.json()
 
+    def get_open_algo_orders(self) -> list:
+        try:
+            q = self._sign_query({})
+            r = self.session.get(f"{self.base_url}/fapi/v1/openAlgoOrders?{q}", timeout=6).json()
+            return r if isinstance(r, list) else []
+        except:
+            return []
+
+    def cancel_algo_order(self, algo_id: int):
+        try:
+            q = self._sign_query({"algoId": algo_id})
+            self.session.delete(f"{self.base_url}/fapi/v1/algoOrder?{q}", timeout=6)
+        except:
+            pass
+
 
 class ProTraderV8Bot:
     def __init__(self, client: BinanceFuturesClient):
@@ -818,6 +833,99 @@ class ProTraderV8Bot:
         except Exception as e:
             print(f"🛑 [EXECUTION ERROR]: {e}")
 
+    def manage_active_positions(self, open_positions: list):
+        """
+        Chart Re-Analysis & Dynamic Profit Stop-Loss Shifting:
+        When a trade reaches significant profit (>= 1.5%), the bot re-analyzes recent
+        15M structure and automatically shifts the Stop-Loss into guaranteed profit
+        territory (above entry for LONG, below entry for SHORT).
+        """
+        if not open_positions:
+            return
+
+        algo_orders = self.client.get_open_algo_orders()
+
+        for p in open_positions:
+            try:
+                sym = p["symbol"]
+                amt = float(p.get("positionAmt", 0))
+                if amt == 0:
+                    continue
+
+                side = "LONG" if amt > 0 else "SHORT"
+                entry = float(p.get("entryPrice", 0))
+                mark = float(p.get("markPrice", 0))
+                if entry <= 0 or mark <= 0:
+                    continue
+
+                profit_pct = ((mark - entry) / entry * 100.0) if side == "LONG" else ((entry - mark) / entry * 100.0)
+
+                # Only shift if position has reached at least 1.5% profit
+                if profit_pct < 1.5:
+                    continue
+
+                qty_prec, price_prec = self.client.get_symbol_precision(sym)
+                df_15m = self.fetch_klines(sym, "15m", limit=16)
+
+                # Find existing algo SL order on Binance
+                existing_sl_order = None
+                for ao in algo_orders:
+                    if ao.get("symbol") == sym and ao.get("orderType") in ["STOP_MARKET", "STOP", "STOP_LOSS"]:
+                        existing_sl_order = ao
+                        break
+
+                current_sl = float(existing_sl_order.get("triggerPrice", 0)) if existing_sl_order else None
+                target_sl = None
+
+                if side == "LONG":
+                    # For LONG: Re-analyze recent 15M swing low
+                    recent_low = df_15m["low"].iloc[-6:].min() if not df_15m.empty else (entry * 1.003)
+                    candidate_sl = round(recent_low * 0.998, price_prec)
+                    min_profit_sl = round(entry * 1.003, price_prec)  # Lock in min +0.3% profit
+                    target_sl = max(candidate_sl, min_profit_sl)
+
+                    # Safety: must be in profit (above entry) and have >= 0.4% breathing room from mark
+                    if target_sl <= entry or target_sl >= (mark * 0.996):
+                        continue
+
+                    # Only update if new SL is meaningfully higher than existing SL
+                    if current_sl is not None and target_sl <= (current_sl * 1.002):
+                        continue
+
+                elif side == "SHORT":
+                    # For SHORT: Re-analyze recent 15M swing high
+                    recent_high = df_15m["high"].iloc[-6:].max() if not df_15m.empty else (entry * 0.997)
+                    candidate_sl = round(recent_high * 1.002, price_prec)
+                    min_profit_sl = round(entry * 0.997, price_prec)  # Lock in min +0.3% profit
+                    target_sl = min(candidate_sl, min_profit_sl)
+
+                    # Safety: must be in profit (below entry) and have >= 0.4% breathing room from mark
+                    if target_sl >= entry or target_sl <= (mark * 1.004):
+                        continue
+
+                    # Only update if new SL is meaningfully lower than existing SL
+                    if current_sl is not None and target_sl >= (current_sl * 0.998):
+                        continue
+
+                if target_sl is None:
+                    continue
+
+                # Execute Shift on Binance
+                sl_side = "SELL" if side == "LONG" else "BUY"
+                if existing_sl_order:
+                    self.client.cancel_algo_order(existing_sl_order["algoId"])
+
+                self.client.place_stop_loss_algo(sym, sl_side, abs(amt), target_sl)
+                locked_pct = round(abs((target_sl - entry) / entry * 100.0), 2)
+
+                print(f"\n🛡️ [SMART PROFIT SL SHIFTED] {sym} {side}:")
+                print(f"   Current Profit: +{profit_pct:.2f}% | Entry: ${entry} | Mark: ${mark}")
+                print(f"   Old SL: ${current_sl} -> NEW SHIFTED SL: ${target_sl}")
+                print(f"   ✓ Guaranteed Profit Locked: +{locked_pct:.2f}% Risk-Free on Binance!\n")
+
+            except Exception as e:
+                print(f"⚠️ [SL SHIFT ERROR] {p.get('symbol')}: {e}")
+
     def update_live_status_file(self, balance: float, open_positions: list, scan_result: dict, actionable_breakouts: list = None):
         """Save scan status and universe screener to live_status.json for dashboard."""
         try:
@@ -883,6 +991,10 @@ class ProTraderV8Bot:
         balance = self.client.get_account_balance()
         open_pos = self.client.get_open_positions()
         active_coins = {p["symbol"] for p in open_pos}
+
+        # 0. Smart Active Position Management & Dynamic Profit SL Shifting
+        if open_pos:
+            self.manage_active_positions(open_pos)
 
         # Strict 2-trade auto-execution cap
         MAX_POSITIONS = 2

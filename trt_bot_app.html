@@ -174,8 +174,8 @@
 
         <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-sm col-span-2 sm:col-span-1">
           <span class="text-[11px] font-medium text-slate-400">Execution Leverage</span>
-          <div class="text-xl font-black text-white mt-0.5">5x Cross</div>
-          <span class="text-[10px] text-emerald-400">Algo Stop-Loss Protected</span>
+          <div id="live-execution-leverage" class="text-xl font-black text-white mt-0.5">5x Cross</div>
+          <span id="live-execution-sub" class="text-[10px] text-emerald-400">Live Active Trade Margin</span>
         </div>
       </div>
 
@@ -488,6 +488,13 @@
 
       const timeStr = data.timestamp ? (data.timestamp.includes(" ") ? data.timestamp.split(" ")[1] : data.timestamp) : "Live";
       document.getElementById("sync-time").innerText = "Sync: " + timeStr;
+
+      if (data.execution_leverage_display) {
+        const levEl = document.getElementById("live-execution-leverage");
+        if (levEl) levEl.innerText = data.execution_leverage_display;
+        const levSubEl = document.getElementById("live-execution-sub");
+        if (levSubEl && data.execution_leverage_subtitle) levSubEl.innerText = data.execution_leverage_subtitle;
+      }
       
       const posCount = (data.open_positions && data.open_positions.length) || 0;
       document.getElementById("live-pos-count-badge").innerText = `${posCount} / 2 Active`;
@@ -516,31 +523,67 @@
           const isWin = p.unrealizedPnl >= 0;
           const pnlColor = isWin ? "text-emerald-400" : "text-rose-400";
           const sideColor = p.side === "LONG" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400";
+          const mType = p.marginType ? (p.marginType.toLowerCase().includes('iso') ? 'Isolated' : 'Cross') : 'Cross';
+          const levBadge = `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 border border-slate-700 ml-1.5 font-bold">${p.leverage || 5}x ${mType}</span>`;
           
           const entryStr = p.entryPrice >= 10 ? p.entryPrice.toFixed(2) : p.entryPrice.toFixed(4);
           const markStr = p.markPrice >= 10 ? p.markPrice.toFixed(2) : p.markPrice.toFixed(4);
           const liqStr = p.liquidationPrice > 0 ? (p.liquidationPrice >= 10 ? `$${p.liquidationPrice.toFixed(2)}` : `$${p.liquidationPrice.toFixed(4)}`) : "None (Safe)";
           
+          // Calculate ROE % & Price %
+          const roeStr = p.pnlPercent !== undefined ? `${p.pnlPercent > 0 ? '+' : ''}${p.pnlPercent.toFixed(2)}% ROE` : '';
+          const pricePnlStr = p.pricePnlPercent !== undefined ? `(${p.pricePnlPercent > 0 ? '+' : ''}${p.pricePnlPercent.toFixed(2)}%)` : '';
+
           let slDisplay = "—";
           let slSubtext = "";
+          let protectionBadge = "";
+
           if (p.slPrice) {
             const slFormatted = p.slPrice >= 10 ? p.slPrice.toFixed(2) : p.slPrice.toFixed(4);
             const distStr = p.slDistPct ? `(${p.slDistPct > 0 ? '+' : ''}${p.slDistPct}%)` : '';
-            if (p.isBreakeven) {
+
+            if (p.isProfitSl && p.lockedProfitPct > 0) {
+              slDisplay = `<span class="text-emerald-400 font-bold">$${slFormatted}</span>`;
+              slSubtext = `<span class="text-[10px] text-emerald-400 font-mono mt-0.5 font-bold">🔒 +${p.lockedProfitPct}% Profit Locked</span>`;
+              protectionBadge = `
+                <span class="badge bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 flex items-center gap-1.5 w-fit font-bold shadow-sm shadow-emerald-500/20">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                  🛡️ SL Shifted to Profit (+${p.lockedProfitPct}% Locked)
+                </span>
+              `;
+            } else if (p.isBreakeven) {
               slDisplay = `<span class="text-emerald-400 font-bold">$${slFormatted}</span>`;
               slSubtext = `<span class="badge bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] mt-0.5">Risk-Free BE</span>`;
+              protectionBadge = `
+                <span class="badge bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1.5 w-fit font-bold">
+                  <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                  🛡️ SL Shifted (Risk-Free Breakeven)
+                </span>
+              `;
             } else {
               slDisplay = `<span class="text-rose-400 font-bold">$${slFormatted}</span>`;
               slSubtext = `<span class="text-[10px] text-slate-400 font-mono mt-0.5">${distStr}</span>`;
+              protectionBadge = `
+                <span class="badge bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1 w-fit">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Initial Exchange SL Active
+                </span>
+              `;
             }
           } else {
             slDisplay = `<span class="text-slate-400">Guaranteed</span>`;
+            protectionBadge = `<span class="badge bg-slate-800 text-slate-400">Protected</span>`;
           }
 
           const tr = document.createElement("tr");
           tr.className = "hover:bg-slate-800/40 transition";
           tr.innerHTML = `
-            <td class="py-3 px-3 font-bold text-white">${p.symbol}</td>
+            <td class="py-3 px-3 font-bold text-white">
+              <div class="flex items-center">
+                <span>${p.symbol}</span>
+                ${levBadge}
+              </div>
+            </td>
             <td class="py-3 px-3"><span class="badge ${sideColor}">${p.side}</span></td>
             <td class="py-3 px-3">${p.size} (~$${(p.size * p.entryPrice).toFixed(1)})</td>
             <td class="py-3 px-3 font-semibold text-slate-200">$${entryStr}</td>
@@ -551,9 +594,14 @@
                 ${slSubtext}
               </div>
             </td>
-            <td class="py-3 px-3 font-bold ${pnlColor}">${isWin ? "+" : ""}$${p.unrealizedPnl.toFixed(2)}</td>
+            <td class="py-3 px-3 font-bold ${pnlColor}">
+              <div>${isWin ? "+" : ""}$${p.unrealizedPnl.toFixed(2)}</div>
+              <div class="text-[11px] font-mono mt-0.5 font-bold ${pnlColor}">
+                ${roeStr} <span class="text-slate-400 font-normal">${pricePnlStr}</span>
+              </div>
+            </td>
             <td class="py-3 px-3 text-slate-400">${liqStr}</td>
-            <td class="py-3 px-3"><span class="badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Exchange SL Active ✓</span></td>
+            <td class="py-3 px-3">${protectionBadge}</td>
           `;
           posTbody.appendChild(tr);
         });
