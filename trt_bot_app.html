@@ -147,10 +147,10 @@
     <div id="tab-content-live" class="space-y-6">
 
       <!-- LIVE ACCOUNT WALLET KPI CARDS -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-sm">
           <span class="text-[11px] font-medium text-slate-400">Total Futures Balance</span>
-          <div id="live-balance" class="text-xl font-black text-white mt-0.5">$4,903.17</div>
+          <div id="live-balance" class="text-xl font-black text-white mt-0.5">$5,494.00</div>
           <span class="text-[10px] text-slate-400">USDT-M Testnet Wallet</span>
         </div>
 
@@ -162,13 +162,19 @@
 
         <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-sm">
           <span class="text-[11px] font-medium text-slate-400">Unrealized PnL (Open)</span>
-          <div id="live-upnl" class="text-xl font-black text-amber-400 mt-0.5">-$20.59</div>
-          <span id="live-upnl-sub" class="text-[10px] text-slate-400">1 Active Position</span>
+          <div id="live-upnl" class="text-xl font-black text-emerald-400 mt-0.5">+$166.72</div>
+          <span id="live-upnl-sub" class="text-[10px] text-slate-400">2 Active Positions</span>
+        </div>
+
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-sm">
+          <span class="text-[11px] font-medium text-slate-400">Net Realized PnL</span>
+          <div id="live-realized-pnl" class="text-xl font-black text-emerald-400 mt-0.5">+$484.98</div>
+          <span id="live-realized-sub" class="text-[10px] text-emerald-400">16 Wins / 18 Losses</span>
         </div>
 
         <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-sm">
           <span class="text-[11px] font-medium text-slate-400">Active Risk per Trade</span>
-          <div class="text-xl font-black text-purple-400 mt-0.5">$49.03 (1.0%)</div>
+          <div class="text-xl font-black text-purple-400 mt-0.5">$54.94 (1.0%)</div>
           <span class="text-[10px] text-purple-300">Dynamic 1% Account Risk</span>
         </div>
 
@@ -485,6 +491,29 @@
       const upnlEl = document.getElementById("live-upnl");
       upnlEl.innerText = (upnl >= 0 ? "+" : "") + "$" + upnl.toFixed(2);
       upnlEl.className = "text-xl font-black mt-0.5 " + (upnl >= 0 ? "text-emerald-400" : "text-rose-400");
+      const upnlSubEl = document.getElementById("live-upnl-sub");
+      if (upnlSubEl) {
+        const count = (data.open_positions && data.open_positions.length) || 0;
+        upnlSubEl.innerText = `${count} Active Position${count !== 1 ? 's' : ''}`;
+      }
+
+      if (data.net_realized_pnl !== undefined) {
+        const rpnl = data.net_realized_pnl || 0;
+        const rpnlEl = document.getElementById("live-realized-pnl");
+        if (rpnlEl) {
+          rpnlEl.innerText = (rpnl >= 0 ? "+" : "") + "$" + rpnl.toFixed(2);
+          rpnlEl.className = "text-xl font-black mt-0.5 " + (rpnl >= 0 ? "text-emerald-400" : "text-rose-400");
+        }
+        const rpnlSubEl = document.getElementById("live-realized-sub");
+        if (rpnlSubEl) {
+          const w = data.win_trades_count || 0;
+          const l = data.loss_trades_count || 0;
+          const total = w + l;
+          const wr = total > 0 ? ((w / total) * 100).toFixed(0) : 0;
+          rpnlSubEl.innerText = `${w}W / ${l}L (${wr}% Win Rate)`;
+          rpnlSubEl.className = "text-[10px] " + (rpnl >= 0 ? "text-emerald-400 font-semibold" : "text-rose-400 font-semibold");
+        }
+      }
 
       const timeStr = data.timestamp ? (data.timestamp.includes(" ") ? data.timestamp.split(" ")[1] : data.timestamp) : "Live";
       document.getElementById("sync-time").innerText = "Sync: " + timeStr;

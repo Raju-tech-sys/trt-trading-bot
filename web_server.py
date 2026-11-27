@@ -273,14 +273,15 @@ def _cmd_positions():
 # ─── RECENT TRADES ───
 def _cmd_recent_trades():
     try:
-        trades = _binance_signed_get("/fapi/v1/userTrades", {"limit": 15})
+        seven_days_ago = int((time.time() - 7 * 86400) * 1000)
+        trades = _binance_signed_get("/fapi/v1/userTrades", {"startTime": seven_days_ago, "limit": 100})
         if not isinstance(trades, list) or not trades:
             return {"reply": "📭 কোনো সাম্প্রতিক ট্রেড নেই।", "type": "info"}
 
         total_realized = 0
         total_fees = 0
-        lines = ["📜 **Recent Trade Fills (Last 15):**\n"]
-        for t in reversed(trades[-10:]):
+        lines = ["📜 **Recent Trade Fills (Newest First):**\n"]
+        for t in reversed(trades[-15:]):
             sym = t.get("symbol", "")
             side = t.get("side", "")
             qty = float(t.get("qty", 0))
@@ -296,7 +297,7 @@ def _cmd_recent_trades():
 
             lines.append(f"{icon} `{ts}` **{sym}** {side} {qty} @ ${price:.2f} → {pnl_str}")
 
-        lines.append(f"\n💵 Total Realized: **{'+'if total_realized>=0 else ''}${total_realized:.2f}**")
+        lines.append(f"\n💵 Total Realized (Recent): **{'+'if total_realized>=0 else ''}${total_realized:.2f}**")
         lines.append(f"💸 Total Fees: **-${total_fees:.2f}**")
 
         return {"reply": "\n".join(lines), "type": "info"}
@@ -315,21 +316,30 @@ def _cmd_pnl():
         active = [p for p in pos_res if float(p.get("positionAmt", 0)) != 0] if isinstance(pos_res, list) else []
         total_upnl = sum(float(p.get("unRealizedProfit", 0)) for p in active)
 
-        trades = _binance_signed_get("/fapi/v1/userTrades", {"limit": 50})
-        total_realized = sum(float(t.get("realizedPnl", 0)) for t in trades) if isinstance(trades, list) else 0
-        total_fees = sum(float(t.get("commission", 0)) for t in trades) if isinstance(trades, list) else 0
+        # Accurate Realized PnL from /fapi/v1/income
+        inc_pnl = _binance_signed_get("/fapi/v1/income", {"incomeType": "REALIZED_PNL", "limit": 100})
+        total_realized = sum(float(x.get("income", 0)) for x in inc_pnl) if isinstance(inc_pnl, list) else 0
+        win_count = len([x for x in inc_pnl if float(x.get("income", 0)) > 0]) if isinstance(inc_pnl, list) else 0
+        loss_count = len([x for x in inc_pnl if float(x.get("income", 0)) < 0]) if isinstance(inc_pnl, list) else 0
+
+        inc_comm = _binance_signed_get("/fapi/v1/income", {"incomeType": "COMMISSION", "limit": 100})
+        total_fees = abs(sum(float(x.get("income", 0)) for x in inc_comm)) if isinstance(inc_comm, list) else 0
 
         net_profit = total_realized - total_fees + total_upnl
+        total_closed = win_count + loss_count
+        win_rate = (win_count / total_closed * 100) if total_closed > 0 else 0
         icon = "📈" if net_profit >= 0 else "📉"
 
         return {
             "reply": (
-                f"{icon} **Profit & Loss Summary**\n\n"
-                f"• Realized PnL (Last 50 fills): **{'+'if total_realized>=0 else ''}${total_realized:.2f}**\n"
-                f"• Unrealized PnL (Open): **{'+'if total_upnl>=0 else ''}${total_upnl:.2f}**\n"
+                f"{icon} **Profit & Loss Performance Report**\n\n"
+                f"• মোট ক্লোজড ট্রেড রেকর্ড: **{total_closed} টি** (লাভ: {win_count} | লস: {loss_count}) - উইনরেট: **{win_rate:.1f}%**\n"
+                f"• Realized Gross Profit: **{'+'if total_realized>=0 else ''}${total_realized:.2f}**\n"
                 f"• Total Fees Paid: **-${total_fees:.2f}**\n"
-                f"• Net Profit: **{'+'if net_profit>=0 else ''}${net_profit:.2f} USDT**\n"
-                f"• Current Balance: **${balance:,.2f} USDT**"
+                f"• Net Realized Profit (Fees বাদে): **{'+'if (total_realized-total_fees)>=0 else ''}${(total_realized-total_fees):.2f} USDT**\n"
+                f"• Unrealized PnL (রানিং ট্রেড): **{'+'if total_upnl>=0 else ''}${total_upnl:.2f} USDT**\n"
+                f"• 💰 **সর্বমোট নিট লাভ (Total Net Profit): {'+'if net_profit>=0 else ''}${net_profit:.2f} USDT**\n"
+                f"• বর্তমান ব্যালেন্স: **${balance:,.2f} USDT**"
             ),
             "type": "info"
         }
@@ -749,11 +759,12 @@ def fetch_live_binance_state() -> dict:
                     "marginType": margin_type
                 })
 
-        # 3. User Trades (Recent Fills)
-        trades_res = SESSION.get(f"{BASE_URL}/fapi/v1/userTrades?" + sign({"limit": 20}), headers={"X-MBX-APIKEY": API_KEY}, timeout=4).json()
+        # 3. User Trades (Recent Fills - Accurate Last 7 Days)
+        seven_days_ago = int((time.time() - 7 * 86400) * 1000)
+        trades_res = SESSION.get(f"{BASE_URL}/fapi/v1/userTrades?" + sign({"startTime": seven_days_ago, "limit": 100}), headers={"X-MBX-APIKEY": API_KEY}, timeout=5).json()
         clean_trades = []
         if isinstance(trades_res, list):
-            for t in reversed(trades_res):
+            for t in reversed(trades_res[-25:]):
                 clean_trades.append({
                     "id": t.get("id"),
                     "time": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(t.get("time", 0) / 1000)),
@@ -764,6 +775,16 @@ def fetch_live_binance_state() -> dict:
                     "realizedPnl": float(t.get("realizedPnl", 0)),
                     "fee": float(t.get("commission", 0))
                 })
+
+        # 3b. Realized PnL & Win/Loss Statistics from Binance Income
+        inc_pnl = SESSION.get(f"{BASE_URL}/fapi/v1/income?" + sign({"incomeType": "REALIZED_PNL", "limit": 100}), headers={"X-MBX-APIKEY": API_KEY}, timeout=5).json()
+        total_realized = round(sum(float(x.get("income", 0)) for x in inc_pnl), 2) if isinstance(inc_pnl, list) else 0.0
+        win_count = len([x for x in inc_pnl if float(x.get("income", 0)) > 0]) if isinstance(inc_pnl, list) else 0
+        loss_count = len([x for x in inc_pnl if float(x.get("income", 0)) < 0]) if isinstance(inc_pnl, list) else 0
+
+        inc_comm = SESSION.get(f"{BASE_URL}/fapi/v1/income?" + sign({"incomeType": "COMMISSION", "limit": 100}), headers={"X-MBX-APIKEY": API_KEY}, timeout=5).json()
+        total_comm = round(abs(sum(float(x.get("income", 0)) for x in inc_comm)), 2) if isinstance(inc_comm, list) else 0.0
+        net_realized = round(total_realized - total_comm, 2)
 
         # 4. Read Live Screening Status
         status_file = os.path.join(DIR_PATH, "live_status.json")
@@ -800,6 +821,11 @@ def fetch_live_binance_state() -> dict:
             "balance": round(float(usdt["balance"]), 2),
             "available": round(float(usdt["availableBalance"]), 2),
             "total_unrealized_pnl": round(sum(p["unrealizedPnl"] for p in active_pos), 2),
+            "total_realized_pnl": total_realized,
+            "total_commission_paid": total_comm,
+            "net_realized_pnl": net_realized,
+            "win_trades_count": win_count,
+            "loss_trades_count": loss_count,
             "open_positions": active_pos,
             "recent_trades": clean_trades,
             "execution_leverage_display": live_exec_str,
