@@ -154,7 +154,7 @@ def process_chat_command(message: str) -> dict:
         return _cmd_suggest()
 
     return {
-        "reply": "❓ কমান্ড বুঝতে পারিনি। `help` টাইপ করুন সব কমান্ড দেখতে।",
+        "reply": "❓ Command not recognized. Type `help` to see all available commands.",
         "type": "error"
     }
 
@@ -223,7 +223,7 @@ def _cmd_positions():
         active = [p for p in pos_res if float(p.get("positionAmt", 0)) != 0] if isinstance(pos_res, list) else []
 
         if not active:
-            return {"reply": "📭 কোনো ওপেন পজিশন নেই। বট নতুন A+ সেটআপ খুঁজছে।", "type": "info"}
+            return {"reply": "📭 No open positions. Bot is screening for A+ institutional setups.", "type": "info"}
 
         # Fetch algo orders for SL info
         algo_res = []
@@ -276,7 +276,7 @@ def _cmd_recent_trades():
         seven_days_ago = int((time.time() - 7 * 86400) * 1000)
         trades = _binance_signed_get("/fapi/v1/userTrades", {"startTime": seven_days_ago, "limit": 100})
         if not isinstance(trades, list) or not trades:
-            return {"reply": "📭 কোনো সাম্প্রতিক ট্রেড নেই।", "type": "info"}
+            return {"reply": "📭 No recent trades found.", "type": "info"}
 
         total_realized = 0
         total_fees = 0
@@ -333,13 +333,13 @@ def _cmd_pnl():
         return {
             "reply": (
                 f"{icon} **Profit & Loss Performance Report**\n\n"
-                f"• মোট ক্লোজড ট্রেড রেকর্ড: **{total_closed} টি** (লাভ: {win_count} | লস: {loss_count}) - উইনরেট: **{win_rate:.1f}%**\n"
+                f"• Total Closed Trades: **{total_closed} ** (Wins: {win_count} | Losses: {loss_count}) — Win Rate: **{win_rate:.1f}%**\n"
                 f"• Realized Gross Profit: **{'+'if total_realized>=0 else ''}${total_realized:.2f}**\n"
                 f"• Total Fees Paid: **-${total_fees:.2f}**\n"
-                f"• Net Realized Profit (Fees বাদে): **{'+'if (total_realized-total_fees)>=0 else ''}${(total_realized-total_fees):.2f} USDT**\n"
-                f"• Unrealized PnL (রানিং ট্রেড): **{'+'if total_upnl>=0 else ''}${total_upnl:.2f} USDT**\n"
-                f"• 💰 **সর্বমোট নিট লাভ (Total Net Profit): {'+'if net_profit>=0 else ''}${net_profit:.2f} USDT**\n"
-                f"• বর্তমান ব্যালেন্স: **${balance:,.2f} USDT**"
+                f"• Net Realized Profit (After Fees): **{'+'if (total_realized-total_fees)>=0 else ''}${(total_realized-total_fees):.2f} USDT**\n"
+                f"• Unrealized PnL (Open Positions): **{'+'if total_upnl>=0 else ''}${total_upnl:.2f} USDT**\n"
+                f"• 💰 **Total Net Profit: {'+'if net_profit>=0 else ''}${net_profit:.2f} USDT**\n"
+                f"• Current Balance: **${balance:,.2f} USDT**"
             ),
             "type": "info"
         }
@@ -352,7 +352,7 @@ def _cmd_close(msg: str):
     try:
         parts = msg.strip().split()
         if len(parts) < 2:
-            return {"reply": "❌ ব্যবহার: `close BTCUSDT` বা `close all`", "type": "error"}
+            return {"reply": "❌ Usage: `close BTCUSDT` or `close all`", "type": "error"}
 
         target = parts[1].upper()
 
@@ -360,12 +360,12 @@ def _cmd_close(msg: str):
         active = [p for p in pos_res if float(p.get("positionAmt", 0)) != 0] if isinstance(pos_res, list) else []
 
         if not active:
-            return {"reply": "📭 কোনো ওপেন পজিশন নেই ক্লোজ করার জন্য।", "type": "info"}
+            return {"reply": "📭 No open positions to close.", "type": "info"}
 
         to_close = active if target == "ALL" else [p for p in active if p["symbol"] == target]
         if not to_close:
             symbols = ", ".join(p["symbol"] for p in active)
-            return {"reply": f"❌ `{target}` পজিশন পাওয়া যায়নি। Active: {symbols}", "type": "error"}
+            return {"reply": f"❌ `{target}` position not found. Active: {symbols}", "type": "error"}
 
         results = []
         for p in to_close:
@@ -403,10 +403,10 @@ def _cmd_close(msg: str):
             })
 
             if res.get("orderId"):
-                results.append(f"✅ **{sym}** ক্লোজ সফল! OrderId: {res['orderId']}")
+                results.append(f"✅ **{sym}** closed successfully! OrderId: {res['orderId']}")
             else:
                 err = res.get("msg", str(res))
-                results.append(f"❌ **{sym}** ক্লোজ ব্যর্থ: {err}")
+                results.append(f"❌ **{sym}** close failed: {err}")
 
         return {"reply": "🎯 **Position Close Result:**\n\n" + "\n".join(results), "type": "action"}
     except Exception as e:
@@ -419,19 +419,19 @@ def _cmd_modify_sl(msg: str):
         # Parse: sl BTCUSDT 59000
         parts = msg.strip().split()
         if len(parts) < 3:
-            return {"reply": "❌ ব্যবহার: `sl BTCUSDT 59000`\nSymbol ও নতুন SL প্রাইস দিন।", "type": "error"}
+            return {"reply": "❌ Usage: `sl BTCUSDT 59000`\nSpecify symbol and new SL price.", "type": "error"}
 
         symbol = parts[1].upper()
         try:
             new_sl = float(parts[2])
         except ValueError:
-            return {"reply": "❌ Invalid SL price. Number দিন।", "type": "error"}
+            return {"reply": "❌ Invalid SL price. Please provide a numeric value.", "type": "error"}
 
         # Verify position exists
         pos_res = _binance_signed_get("/fapi/v2/positionRisk")
         active = [p for p in pos_res if float(p.get("positionAmt", 0)) != 0 and p["symbol"] == symbol] if isinstance(pos_res, list) else []
         if not active:
-            return {"reply": f"❌ `{symbol}` পজিশন পাওয়া যায়নি।", "type": "error"}
+            return {"reply": f"❌ `{symbol}` position not found.", "type": "error"}
 
         p = active[0]
         amt = float(p["positionAmt"])
@@ -441,9 +441,9 @@ def _cmd_modify_sl(msg: str):
 
         # Safety check
         if side == "LONG" and new_sl >= float(p["markPrice"]):
-            return {"reply": f"❌ LONG পজিশনে SL (${new_sl}) মার্ক প্রাইসের উপরে সেট করা যাবে না।", "type": "error"}
+            return {"reply": f"❌ LONG SL (${new_sl}) cannot be set above mark price.", "type": "error"}
         if side == "SHORT" and new_sl <= float(p["markPrice"]):
-            return {"reply": f"❌ SHORT পজিশনে SL (${new_sl}) মার্ক প্রাইসের নিচে সেট করা যাবে না।", "type": "error"}
+            return {"reply": f"❌ SHORT SL (${new_sl}) cannot be set below mark price.", "type": "error"}
 
         # Cancel existing algo SL orders for this symbol
         try:
@@ -484,12 +484,12 @@ def _cmd_modify_sl(msg: str):
 
         if sl_res.get("algoId") or sl_res.get("orderId"):
             return {
-                "reply": f"✅ **{symbol}** Stop-Loss আপডেট সফল!\n\nনতুন SL: **{sl_str}**{be_tag}\nId: {sl_res.get('algoId') or sl_res.get('orderId')}",
+                "reply": f"✅ **{symbol}** Stop-Loss Updated Successfully!\n\nNew SL: **{sl_str}**{be_tag}\nId: {sl_res.get('algoId') or sl_res.get('orderId')}",
                 "type": "action"
             }
         else:
             err = sl_res.get("msg", str(sl_res))
-            return {"reply": f"❌ SL আপডেট ব্যর্থ: {err}", "type": "error"}
+            return {"reply": f"❌ SL update failed: {err}", "type": "error"}
     except Exception as e:
         return {"reply": f"❌ SL modify error: {e}", "type": "error"}
 
@@ -499,10 +499,10 @@ def _cmd_set_leverage(msg: str):
     try:
         nums = re.findall(r"(\d+)", msg)
         if not nums:
-            return {"reply": "❌ ব্যবহার: `leverage 10` — 1 থেকে 125 এর মধ্যে দিন।", "type": "error"}
+            return {"reply": "❌ Usage: `leverage 10` — value between 1 and 125.", "type": "error"}
         lev = int(nums[0])
         if lev < 1 or lev > 125:
-            return {"reply": f"❌ Leverage {lev}x সীমার বাইরে। 1-125 এর মধ্যে দিন।", "type": "error"}
+            return {"reply": f"❌ Leverage {lev}x out of range (1-125).", "type": "error"}
 
         cfg = load_bot_config()
         old_lev = cfg.get("leverage", 5)
@@ -510,7 +510,7 @@ def _cmd_set_leverage(msg: str):
         save_bot_config(cfg)
 
         return {
-            "reply": f"⚙️ **Leverage আপডেট সফল!**\n\n• আগে: **{old_lev}x**\n• এখন: **{lev}x**\n\n_পরবর্তী সব নতুন ট্রেডে {lev}x leverage ব্যবহার হবে।_",
+            "reply": f"⚙️ **Leverage Updated Successfully!**\n\n• Previous: **{old_lev}x**\n• Current: **{lev}x**\n\n_All subsequent new trades will execute at {lev}x leverage._",
             "type": "config"
         }
     except Exception as e:
@@ -533,18 +533,18 @@ def _cmd_set_risk(msg: str):
         if pct_match:
             new_pct = float(pct_match.group(1))
             if new_pct < 0.1 or new_pct > 5.0:
-                return {"reply": f"❌ Risk {new_pct}% সীমার বাইরে। 0.1% - 5.0% এর মধ্যে দিন।", "type": "error"}
+                return {"reply": f"❌ Risk {new_pct}% out of range. Provide between 0.1% and 5.0%.", "type": "error"}
             cfg["risk_pct"] = new_pct
             save_bot_config(cfg)
             return {
-                "reply": f"⚙️ **Risk Per Trade আপডেট সফল!**\n\n• আগে: **{old_risk}%** প্রতি ট্রেডে\n• এখন: **{new_pct}%** প্রতি ট্রেডে\n\n_যেমন: $10,000 ব্যালেন্সে প্রতি ট্রেডে ~${10000*new_pct/100:.0f} রিস্ক হবে।_",
+                "reply": f"⚙️ **Risk Per Trade Updated Successfully!**\n\n• Previous: **{old_risk}%** per trade\n• Current: **{new_pct}%** per trade\n\n_E.g.: On a $10,000 balance, risk per trade will be ~${10000*new_pct/100:.0f}._",
                 "type": "config"
             }
         elif dollar_match:
             # Convert dollar to approximate percentage
-            return {"reply": "💡 ব্যবহার: `risk 1.5%` — শতকরা হারে দিন (0.1% - 5.0%)।\nবর্তমান ব্যালেন্সের উপর ভিত্তি করে ক্যালকুলেট হবে।", "type": "info"}
+            return {"reply": "💡 Usage: `risk 1.5%` — provide a percentage (0.1% - 5.0%).\nRisk is dynamically calculated based on current balance.", "type": "info"}
         else:
-            return {"reply": f"❌ ব্যবহার: `risk 2%` — শতকরা রিস্ক দিন।\n\nবর্তমান রিস্ক: **{old_risk}%**", "type": "error"}
+            return {"reply": f"❌ Usage: `risk 2%` — specify risk percentage.\n\nCurrent Risk: **{old_risk}%**", "type": "error"}
     except Exception as e:
         return {"reply": f"❌ Error: {e}", "type": "error"}
 
@@ -561,19 +561,19 @@ def _cmd_set_margin(msg: str):
         elif "cross" in msg_lower:
             new_type = "CROSSED"
         else:
-            return {"reply": f"❌ ব্যবহার: `margin cross` বা `margin isolated`\n\nবর্তমান: **{old_type}**", "type": "error"}
+            return {"reply": f"❌ Usage: `margin cross` or `margin isolated`\n\nCurrent: **{old_type}**", "type": "error"}
 
         cfg["margin_type"] = new_type
         save_bot_config(cfg)
 
-        display = "Cross (ক্রস)" if new_type == "CROSSED" else "Isolated (আইসোলেটেড)"
+        display = "Cross" if new_type == "CROSSED" else "Isolated"
         return {
             "reply": (
-                f"⚙️ **Margin Type আপডেট সফল!**\n\n"
-                f"• আগে: **{old_type}**\n"
-                f"• এখন: **{display}**\n\n"
-                f"_বটের পরবর্তী সব নতুন ট্রেড {display} মার্জিনে ওপেন হবে।_\n"
-                f"_(নোট: ওপেন ট্রেডগুলোর মার্জিন বাইন্যান্স রুলস অনুযায়ী ক্লোজ হওয়ার পর নতুন মার্জিনে কাজ করবে।)_"
+                f"⚙️ **Margin Mode Updated!**\n\n"
+                f"• Previous: **{old_type}**\n"
+                f"• Current: **{display}**\n\n"
+                f"_All subsequent new trades will execute in {display} margin._\n"
+                f"_(Note: Open positions will retain their current margin mode until closed)._"
             ),
             "type": "config"
         }
@@ -584,7 +584,7 @@ def _cmd_set_margin(msg: str):
 # ─── SHOW CONFIG ───
 def _cmd_show_config():
     cfg = load_bot_config()
-    margin_display = "Cross (ক্রস)" if cfg["margin_type"] == "CROSSED" else "Isolated (আইসোলেটেড)"
+    margin_display = "Cross" if cfg["margin_type"] == "CROSSED" else "Isolated"
     return {
         "reply": (
             f"⚙️ **Current Bot Configuration:**\n\n"
@@ -596,7 +596,7 @@ def _cmd_show_config():
             f"• Stop-Loss: **Structural 0.8%-1.5%**\n"
             f"• TP1: **1.8R (50% partial close + SL→BE)**\n"
             f"• TP2: **3.5R (Full runner close)**\n\n"
-            f"_`leverage 10`, `risk 2%`, `margin isolated` দিয়ে পরিবর্তন করুন।_"
+            f"_Change settings anytime using `leverage 10`, `risk 2%`, `margin isolated`._"
         ),
         "type": "config"
     }
@@ -612,10 +612,10 @@ def _cmd_suggest():
             return {
                 "reply": (
                     "💡 **Bot Analysis:**\n\n"
-                    "• কোনো ওপেন পজিশন নেই। ২/২ স্লট ফাঁকা আছে।\n"
-                    "• বট অটোমেটিক্যালি 146+ পেয়ারে A+ সেটআপ খুঁজছে।\n"
-                    "• নতুন সিগন্যাল আসলে সেরা ২টি অটো-এক্সিকিউট হবে।\n\n"
-                    "_ধৈর্য ধরুন — মার্কেট যখন সঠিক সেটআপ দেবে তখনই ট্রেড নেবে। 🎯_"
+                    "• 0 open positions. 2/2 slots available.\n"
+                    "• Scanner actively monitoring 146+ Binance pairs.\n"
+                    "• Highest quality institutional setups will auto-execute.\n\n"
+                    "_Market discipline: Bot executes only when structural A+ conditions are confirmed. 🎯_"
                 ),
                 "type": "info"
             }
@@ -632,24 +632,24 @@ def _cmd_suggest():
 
             if pnl_pct >= 5:
                 lines.append(
-                    f"🏆 **{sym}** ({side}): +{pnl_pct}% প্রফিটে! +${upnl:.2f}\n"
-                    f"  → 💡 TP2 টার্গেটের কাছে এসেছে। আংশিক প্রফিট নিতে পারেন অথবা SL ব্রেক-ইভেনে সরান।\n"
-                    f"  → কমান্ড: `sl {sym} {entry}` (Breakeven SL)\n"
+                    f"🏆 **{sym}** ({side}): +{pnl_pct}% in profit! +${upnl:.2f}\n"
+                    f"  → 💡 Approaching TP2 target. Consider securing runner profit or shifting SL to breakeven.\n"
+                    f"  → Command: `sl {sym} {entry}` (Breakeven SL)\n"
                 )
             elif pnl_pct >= 2:
                 lines.append(
-                    f"✅ **{sym}** ({side}): +{pnl_pct}% প্রফিটে! +${upnl:.2f}\n"
-                    f"  → 💡 ভালো চলছে। SL কিছুটা উপরে তুলে রিস্ক কমাতে পারেন।\n"
+                    f"✅ **{sym}** ({side}): +{pnl_pct}% in profit! +${upnl:.2f}\n"
+                    f"  → 💡 Trade in strong profit. Trailing SL active.\n"
                 )
             elif pnl_pct >= 0:
                 lines.append(
-                    f"🔄 **{sym}** ({side}): +{pnl_pct}% — প্রায় ব্রেক-ইভেনে।\n"
-                    f"  → 💡 ধৈর্য ধরুন। SL যেখানে আছে সেখানেই রাখুন।\n"
+                    f"🔄 **{sym}** ({side}): +{pnl_pct}% — near breakeven.\n"
+                    f"  → 💡 Hold position. Respecting invalidation level.\n"
                 )
             else:
                 lines.append(
-                    f"⚠️ **{sym}** ({side}): {pnl_pct}% — ${abs(upnl):.2f} লসে।\n"
-                    f"  → 💡 প্যানিক ক্লোজ করবেন না। SL সেট আছে, রিস্ক ম্যানেজড।\n"
+                    f"⚠️ **{sym}** ({side}): {pnl_pct}% — ${abs(upnl):.2f} drawdown.\n"
+                    f"  → 💡 Do not panic close. Stop loss is active and risk is fully protected.\n"
                 )
 
         return {"reply": "\n".join(lines), "type": "info"}
@@ -958,7 +958,7 @@ class RealTimeRequestHandler(SimpleHTTPRequestHandler):
 
                 password = body.get("password", "")
                 if password != CHAT_PASSWORD:
-                    resp = json.dumps({"error": "unauthorized", "reply": "🔒 পাসওয়ার্ড ভুল।"}).encode("utf-8")
+                    resp = json.dumps({"error": "unauthorized", "reply": "🔒 Invalid password."}).encode("utf-8")
                     self.send_response(401)
                     self.send_header("Content-Type", "application/json")
                     self.send_header("Content-Length", str(len(resp)))
@@ -968,7 +968,7 @@ class RealTimeRequestHandler(SimpleHTTPRequestHandler):
 
                 message = body.get("message", "").strip()
                 if not message:
-                    resp = json.dumps({"reply": "❌ খালি মেসেজ।", "type": "error"}).encode("utf-8")
+                    resp = json.dumps({"reply": "❌ Empty message.", "type": "error"}).encode("utf-8")
                     self.send_response(400)
                     self.send_header("Content-Type", "application/json")
                     self.send_header("Content-Length", str(len(resp)))
@@ -1006,7 +1006,7 @@ class RealTimeRequestHandler(SimpleHTTPRequestHandler):
                     resp = json.dumps({"authenticated": True}).encode("utf-8")
                     self.send_response(200)
                 else:
-                    resp = json.dumps({"authenticated": False, "error": "🔒 পাসওয়ার্ড ভুল। আবার চেষ্টা করুন।"}).encode("utf-8")
+                    resp = json.dumps({"authenticated": False, "error": "🔒 Invalid password. Please try again."}).encode("utf-8")
                     self.send_response(401)
 
                 self.send_header("Content-Type", "application/json")
