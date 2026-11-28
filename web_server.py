@@ -906,7 +906,9 @@ class RealTimeRequestHandler(SimpleHTTPRequestHandler):
                 "status_file": status_file,
                 "status_exists": os.path.exists(status_file),
                 "last_known_gainers": len(LAST_KNOWN_STATUS.get("gainers", [])),
-                "last_known_squeezes": len(LAST_KNOWN_STATUS.get("squeezes", []))
+                "last_known_squeezes": len(LAST_KNOWN_STATUS.get("squeezes", [])),
+                "render_env": bool(os.environ.get("RENDER")),
+                "bot_thread_alive": any(t.name == "ProTraderBotThread" and t.is_alive() for t in threading.enumerate())
             }
             try:
                 rf = requests.get("https://fapi.binance.com/fapi/v1/ticker/24hr", timeout=3)
@@ -922,6 +924,7 @@ class RealTimeRequestHandler(SimpleHTTPRequestHandler):
                     with open(status_file, "r", encoding="utf-8") as f:
                         content = json.load(f)
                     debug_info["json_keys"] = list(content.keys())
+                    debug_info["json_timestamp"] = content.get("timestamp")
                     debug_info["json_gainers_len"] = len(content.get("gainers", []))
                     debug_info["json_squeezes_len"] = len(content.get("squeezes", []))
                 except Exception as e:
@@ -1040,12 +1043,10 @@ def run_server():
     print(f"   Chat Bot API: http://localhost:{PORT}/api/chat")
     print(f"   Chat Password: {'*' * len(CHAT_PASSWORD)} (Set CHAT_PASSWORD env var to change)")
     server.serve_forever()
-    print(f"🚀 [REAL-TIME WEB SERVER] Running at http://localhost:{PORT}")
-    print(f"   API Endpoint: http://localhost:{PORT}/api/live")
-    print(f"   Chat Bot API: http://localhost:{PORT}/api/chat")
-    print(f"   Chat Password: {'*' * len(CHAT_PASSWORD)} (Set CHAT_PASSWORD env var to change)")
-    server.serve_forever()
 
 
 if __name__ == "__main__":
+    if os.environ.get("RENDER") and not any(t.name == "ProTraderBotThread" and t.is_alive() for t in threading.enumerate()):
+        from render_start import run_bot_thread
+        threading.Thread(target=run_bot_thread, name="ProTraderBotThread", daemon=True).start()
     run_server()

@@ -9,8 +9,15 @@ import sys
 import time
 import threading
 
+BOT_HEALTH = {
+    "started": False,
+    "last_error": None,
+    "restarts": 0,
+}
+
 def run_bot_thread():
     print("[CLOUD RUNNER] Starting Pro Trader v8.0 Universe Engine Thread...", flush=True)
+    BOT_HEALTH["started"] = True
     time.sleep(2)
     while True:
         try:
@@ -21,6 +28,8 @@ def run_bot_thread():
             bot = ProTraderV8Bot(client)
             bot.start()
         except Exception as e:
+            BOT_HEALTH["last_error"] = str(e)
+            BOT_HEALTH["restarts"] += 1
             print(f"[CLOUD RUNNER ERROR] Bot thread exception: {e}. Restarting in 5s...", flush=True)
             time.sleep(5)
 
@@ -30,7 +39,7 @@ if __name__ == "__main__":
     os.chdir(script_dir)
 
     # 1. Start bot daemon in background thread
-    t = threading.Thread(target=run_bot_thread, daemon=True)
+    t = threading.Thread(target=run_bot_thread, name="ProTraderBotThread", daemon=True)
     t.start()
 
     # 2. Start web server on main thread
